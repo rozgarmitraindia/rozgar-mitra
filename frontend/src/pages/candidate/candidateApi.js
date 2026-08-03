@@ -1,0 +1,63 @@
+import { apiFetch } from "../../utils/auth.js";
+
+export async function fetchJobs(search = "") {
+  const path = search ? `/jobs?search=${encodeURIComponent(search)}` : "/jobs";
+  const result = await apiFetch(path);
+  return result.data?.items || result.items || [];
+}
+
+export async function fetchRooms(search = "") {
+  const path = search ? `/rooms?search=${encodeURIComponent(search)}` : "/rooms";
+  const result = await apiFetch(path);
+  return result.data?.items || result.items || [];
+}
+
+export async function fetchSavedJobs() {
+  const result = await apiFetch("/user/saved");
+  return result.data?.savedJobs || [];
+}
+
+export async function fetchCandidateSummary() {
+  const result = await apiFetch("/user/summary");
+  return result.data || {};
+}
+
+export async function fetchCandidateApplications() {
+  const result = await apiFetch("/user/applications");
+  return result.data?.items || [];
+}
+
+export async function fetchNotifications() {
+  const result = await apiFetch("/notifications");
+  return result.data?.items || [];
+}
+
+export async function fetchJobDetail(jobId) {
+  const result = await apiFetch(`/jobs/${jobId}`);
+  return result.data;
+}
+
+export async function fetchRoomDetail(roomId) {
+  const result = await apiFetch(`/rooms/${roomId}`);
+  return result.data;
+}
+
+export async function toggleJobSaved(jobId) {
+  return apiFetch(`/jobs/${jobId}/wishlist`, { method: "POST" });
+}
+
+export async function toggleRoomSaved(roomId) {
+  return apiFetch(`/rooms/${roomId}/wishlist`, { method: "POST" });
+}
+
+export async function requestRoomVisit(roomId, payload = {}) {
+  return apiFetch(`/rooms/${roomId}/visit-requests`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function removeSavedJob(jobId) {
+  return apiFetch(`/user/saved/jobs/${jobId}`, { method: "POST" });
+}
+
+export async function applyJob(jobId, payload = {}) {
+  return apiFetch(`/jobs/${jobId}/applications`, { method: "POST", body: JSON.stringify(payload) });
+}

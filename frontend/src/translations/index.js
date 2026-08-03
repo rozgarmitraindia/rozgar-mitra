@@ -1,0 +1,66 @@
+const translations = {
+  en: {
+    nav: {
+      home: "Home",
+      jobs: "Jobs",
+      rooms: "Rooms",
+      postJob: "Post Job",
+      postRoom: "Post Room",
+      about: "About",
+      contact: "Contact",
+      login: "Login",
+      dashboard: "Dashboard",
+      joinFree: "Join Free",
+      notify: "Notify",
+      en: "EN",
+      hi: "HI",
+    },
+    common: {
+      saved: "Saved",
+      save: "Save",
+    },
+    rooms: {
+      sectionDesc: "Photos, amenities, map and visit booking.",
+      searchPlaceholder: "Location, PG name, amenities",
+      searchBtn: "Search",
+      bookVisit: "Book Visit",
+    },
+    auth: {
+      login: "Login",
+      register: "Register",
+    },
+  },
+  hi: {
+    nav: {
+      home: "होम",
+      jobs: "नौकरियां",
+      rooms: "कमरे",
+      postJob: "नौकरी पोस्ट करें",
+      postRoom: "कमरा पोस्ट करें",
+      about: "हमारे बारे में",
+      contact: "संपर्क",
+      login: "लॉगइन",
+      dashboard: "डैशबोर्ड",
+      joinFree: "मुफ्त जुड़ें",
+      notify: "सूचित करें",
+      en: "EN",
+      hi: "HI",
+    },
+    common: {
+      saved: "सहेजा गया",
+      save: "सहेजें",
+    },
+    rooms: {
+      sectionDesc: "फ़ोटो, सुविधाएँ, नक्शा और विज़िट बुकिंग।",
+      searchPlaceholder: "स्थान, PG नाम, सुविधाएँ",
+      searchBtn: "खोजें",
+      bookVisit: "विज़िट बुक करें",
+    },
+    auth: {
+      login: "लॉगइन",
+      register: "रजिस्टर",
+    },
+  },
+};
+
+export default translations;
