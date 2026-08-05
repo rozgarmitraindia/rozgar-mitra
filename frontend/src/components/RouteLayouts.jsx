@@ -15,12 +15,12 @@ const roleSidebars = {
     { label: "Settings", path: "/settings" },
   ],
   employer: [
-    { label: "Dashboard", path: "/employer/dashboard" },
-    { label: "Post Job", path: "/post-job" },
-    { label: "My Jobs", path: "/employer/jobs" },
-    { label: "Applications", path: "/employer/applications" },
-    { label: "Profile", path: "/employer/profile" },
-    { label: "Settings", path: "/employer/settings" },
+    { label: "Dashboard", path: "/employer/dashboard", icon: "◫" },
+    { label: "Post Job", path: "/post-job", icon: "+" },
+    { label: "My Jobs", path: "/employer/jobs", icon: "□" },
+    { label: "Applications", path: "/employer/applications", icon: "≡" },
+    { label: "Profile", path: "/employer/profile", icon: "◎" },
+    { label: "Settings", path: "/employer/settings", icon: "⚙" },
   ],
   roomOwner: [
     { label: "Dashboard", path: "/room-owner/dashboard" },
@@ -106,9 +106,11 @@ export function RoleLayout({ role, children }) {
   const location = useLocation();
   const menuItems = roleSidebars[session?.role] || roleSidebars[role] || [];
   const currentRoleName = breadcrumbMap[session?.role] || breadcrumbMap[role] || "Account";
+  const isEmployer = (session?.role || role) === "employer";
+  const user = session?.user || session || {};
 
   return (
-    <section className="role-shell">
+    <section className={`role-shell ${isEmployer ? "employer-shell" : ""}`}>
       <div className="role-header-row">
         <div>
           <div className="section-label">{currentRoleName} Dashboard</div>
@@ -122,7 +124,19 @@ export function RoleLayout({ role, children }) {
 
       <div className="role-layout">
         <aside className={`role-sidebar ${sidebarOpen ? "open" : ""}`}>
-          <div className="role-sidebar-title">{currentRoleName}</div>
+          {isEmployer ? (
+            <>
+              <div className="nav-logo employer-logo">
+                <span className="logo-icon">RM</span>
+                <div><span className="logo-hindi">Employer</span><span className="logo-en">Hiring Center</span></div>
+              </div>
+              <div className="employer-account-card">
+                <span className="employer-avatar">{(user.companyName || user.fullName || "E").charAt(0).toUpperCase()}</span>
+                <div><strong>{user.companyName || user.fullName || "Employer"}</strong><small>{user.status || "Account"}</small></div>
+              </div>
+              <div className="sidebar-heading">Workspace</div>
+            </>
+          ) : <div className="role-sidebar-title">{currentRoleName}</div>}
           {menuItems.map((item) => (
             <NavLink
               key={item.path}
@@ -130,6 +144,7 @@ export function RoleLayout({ role, children }) {
               className={({ isActive }) => `role-nav-link ${isActive ? "active" : ""}`}
               onClick={() => setSidebarOpen(false)}
             >
+              {isEmployer && <span className="nav-icon">{item.icon}</span>}
               {item.label}
             </NavLink>
           ))}
@@ -139,6 +154,7 @@ export function RoleLayout({ role, children }) {
           {children || <Outlet />}
         </main>
       </div>
+      {isEmployer && sidebarOpen ? <button type="button" className="role-sidebar-backdrop" aria-label="Close menu" onClick={() => setSidebarOpen(false)} /> : null}
     </section>
   );
 }

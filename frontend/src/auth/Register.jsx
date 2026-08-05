@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { skills } from "../data/siteData.js";
-import { apiFetch, makeReadableId } from "../utils/auth.js";
+import { apiUpload, makeReadableId } from "../utils/auth.js";
 import { Mail, Smartphone, Lock, Eye, EyeOff } from "lucide-react";
 
 const roleConfig = {
@@ -20,6 +20,7 @@ export default function Register() {
   const [propertyName, setPropertyName] = useState("");
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploadingDocuments, setUploadingDocuments] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState("");
@@ -63,31 +64,22 @@ export default function Register() {
       return;
     }
 
-    const payload = Object.fromEntries(form.entries());
-    delete payload.confirmPassword;
-    delete payload.profilePhoto;
-    delete payload.resume;
-    delete payload.govtId;
-    delete payload.companyLogo;
-    delete payload.companyDocument;
-    delete payload.roomPhotos;
-    delete payload.propertyDocument;
-
-    if (role === "candidate") payload.skills = selectedSkills;
-    if (role === "employer") payload.email = payload.companyEmail;
-    if (role === "owner") payload.propertyName = payload.propertyName || propertyName;
+    const email = form.get("email") || form.get("companyEmail");
+    const hasFiles = ["profilePhoto", "resume", "govtId", "companyLogo", "companyDocument", "roomPhotos", "propertyDocument"]
+      .some((name) => Array.from(form.getAll(name)).some((file) => file instanceof File && file.size > 0));
+    form.delete("confirmPassword");
+    if (role === "candidate") form.append("skills", JSON.stringify(selectedSkills));
+    if (role === "employer") form.append("email", String(form.get("companyEmail") || ""));
+    setUploadingDocuments(hasFiles);
 
     try {
-      const data = await apiFetch(roleConfig[role].endpoint, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      const email = payload.email || payload.companyEmail;
+      const data = await apiUpload(roleConfig[role].endpoint, form);
       setMessage(`${data.message}. OTP email par bhej diya gaya hai.`);
       navigate(`/verify?email=${encodeURIComponent(email)}`);
     } catch (err) {
       setError(err.message);
     } finally {
+      setUploadingDocuments(false);
       setLoading(false);
     }
   }
@@ -117,12 +109,13 @@ export default function Register() {
             <div className="form-group"><label className="form-label">Full Name *</label><input className="form-input" name="fullName" value={candidateName} onChange={(event) => setCandidateName(event.target.value)} placeholder="e.g. Sunita Sharma" required /></div>
             <div className="generated-id"><span>Unique User ID</span><input value={candidateId} readOnly /></div>
             <div className="form-row"><div className="form-group"><label className="form-label">Mobile Number *</label><div className="input-icon-group"><span className="input-icon"><Smartphone size={16} /></span><input className="form-input" name="mobile" required /></div></div><div className="form-group"><label className="form-label">Email ID *</label><div className="input-icon-group"><span className="input-icon"><Mail size={16} /></span><input className="form-input" name="email" type="email" required /></div></div></div>
+            <div className="form-row"><div className="form-group"><label className="form-label">Date of Birth</label><input className="form-input" name="dateOfBirth" type="date" /></div><div className="form-group"><label className="form-label">Gender</label><select className="form-select" name="gender" defaultValue=""><option value="">Select gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option><option value="preferNotToSay">Prefer not to say</option></select></div></div>
             <div className="form-row"><div className="form-group"><label className="form-label">Address *</label><input className="form-input" name="address" required /></div><div className="form-group"><label className="form-label">Pincode *</label><input className="form-input" name="pincode" required /></div></div>
             <div className="form-group"><label className="form-label">Skills</label><div className="skills-select">{skills.map((skill) => <button type="button" key={skill} className={`skill-chip ${selectedSkills.includes(skill) ? "selected" : ""}`} onClick={() => toggleSkill(skill)}>{skill}</button>)}</div></div>
             <div className="form-row"><div className="form-group"><label className="form-label">Experience</label><input className="form-input" name="experience" /></div><div className="form-group"><label className="form-label">Availability</label><input className="form-input" name="availability" /></div></div>
             <div className="form-group"><label className="form-label">About Yourself</label><textarea className="form-textarea" name="about" /></div>
             <div className="form-row"><div className="form-group"><label className="form-label">Profile Photo</label><input className="form-input" name="profilePhoto" type="file" /></div><div className="form-group"><label className="form-label">Resume Upload</label><input className="form-input" name="resume" type="file" /></div></div>
-            <div className="form-group"><label className="form-label">Government ID Upload</label><input className="form-input" name="govtId" type="file" /></div>
+            <div className="form-group"><label className="form-label">Government ID Upload</label><input className="form-input" name="govtId" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" /></div>
             <div className="form-row"><div className="form-group"><label className="form-label">Password</label><div className="input-icon-group password"><span className="input-icon"><Lock size={16} /></span><input className="form-input" name="password" type={showPassword ? "text" : "password"} required /><button type="button" className="input-icon-button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div><div className="form-group"><label className="form-label">Confirm Password</label><div className="input-icon-group password"><span className="input-icon"><Lock size={16} /></span><input className="form-input" name="confirmPassword" type={showConfirmPassword ? "text" : "password"} required /><button type="button" className="input-icon-button" onClick={() => setShowConfirmPassword((current) => !current)} aria-label={showConfirmPassword ? "Hide password" : "Show password"}>{showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div></div>
           </>
         )}
@@ -137,7 +130,7 @@ export default function Register() {
             <div className="form-row"><div className="form-group"><label className="form-label">Alternate Number</label><input className="form-input" name="alternateNumber" /></div><div className="form-group"><label className="form-label">Company Location</label><input className="form-input" name="companyLocation" /></div></div>
             <div className="form-group"><label className="form-label">Address</label><textarea className="form-textarea" name="address" /></div>
             <div className="form-group"><label className="form-label">Google Map</label><input className="form-input" name="googleMapLink" placeholder="https://maps.google.com/..." /></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Company Logo</label><input className="form-input" name="companyLogo" type="file" /></div><div className="form-group"><label className="form-label">Proof of Document Upload Cloudinary</label><input className="form-input" name="companyDocument" type="file" /></div></div>
+            <div className="form-row"><div className="form-group"><label className="form-label">Company Logo</label><input className="form-input" name="companyLogo" type="file" accept="image/*" /></div><div className="form-group"><label className="form-label">Proof of Document Upload</label><input className="form-input" name="companyDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" /></div></div>
             <div className="form-group"><label className="form-label">Password</label><div className="input-icon-group password"><span className="input-icon"><Lock size={16} /></span><input className="form-input" name="password" type={showPassword ? "text" : "password"} required /><button type="button" className="input-icon-button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div>
           </>
         )}
@@ -151,11 +144,11 @@ export default function Register() {
             <div className="form-row"><div className="form-group"><label className="form-label">Email *</label><div className="input-icon-group"><span className="input-icon"><Mail size={16} /></span><input className="form-input" name="email" type="email" required /></div></div><div className="form-group"><label className="form-label">Phone Number *</label><div className="input-icon-group"><span className="input-icon"><Smartphone size={16} /></span><input className="form-input" name="mobile" required /></div></div></div>
             <div className="form-row"><div className="form-group"><label className="form-label">Alternate Number</label><input className="form-input" name="alternateNumber" /></div><div className="form-group"><label className="form-label">Google Map Link</label><input className="form-input" name="googleMapLink" /></div></div>
             <div className="form-group"><label className="form-label">Address</label><textarea className="form-textarea" name="address" /></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Room Photos</label><input className="form-input" name="roomPhotos" type="file" multiple /></div><div className="form-group"><label className="form-label">Proof of Hotel/PG Document</label><input className="form-input" name="propertyDocument" type="file" /></div></div>
+            <div className="form-row"><div className="form-group"><label className="form-label">Room Photos</label><input className="form-input" name="roomPhotos" type="file" accept="image/*" multiple /></div><div className="form-group"><label className="form-label">Proof of Hotel/PG Document *</label><input className="form-input" name="propertyDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required /></div></div>
             <div className="form-group"><label className="form-label">Password</label><div className="input-icon-group password"><span className="input-icon"><Lock size={16} /></span><input className="form-input" name="password" type={showPassword ? "text" : "password"} required /><button type="button" className="input-icon-button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div>
           </>
         )}
-        <button className="btn-primary" disabled={loading} type="submit">{loading ? "Please wait..." : "Register & Send OTP on Email"}</button>
+        <button className="btn-primary" disabled={loading} type="submit">{loading ? <><span className="loading-spinner" />{uploadingDocuments ? "Uploading documents & saving..." : "Creating account..."}</> : "Register & Send OTP on Email"}</button>
 
         <div style={{ marginTop: 12, textAlign: 'center', fontSize: 14 }}>
           Already have an account? <Link to="/login" style={{ fontWeight: 700 }}>Sign in</Link>

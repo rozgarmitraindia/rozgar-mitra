@@ -9,8 +9,44 @@ import { sendMail } from "../services/mail.service.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { getFirebaseAdmin } from "../services/firebase.service.js";
 import { User } from "../models/User.js";
+import { createNotification } from "../services/notification.service.js";
 
 export const employerRouter = Router();
+
+const candidateBioFields = "fullName email mobile dateOfBirth gender address pincode skills experience availability about profilePhoto resume immutableId";
+
+function populateApplication(query) {
+  return query
+    .populate({ path: "candidate", select: candidateBioFields })
+    .populate({ path: "job", select: "title postId salary employmentType vacancies address googleMapLink status" });
+}
+
+function interviewError(message) {
+  const error = new Error(message);
+  error.statusCode = 400;
+  error.code = "INVALID_INTERVIEW_DETAILS";
+  return error;
+}
+
+function validateInterviewDetails(payload = {}) {
+  const mode = String(payload.mode || "").toLowerCase();
+  const date = String(payload.date || "").trim();
+  const time = String(payload.time || "").trim();
+  const supportContact = String(payload.supportContact || "").trim();
+  if (!['remote', 'physical'].includes(mode)) throw interviewError("Select Remote or Physical interview mode");
+  if (!date || !time || !supportContact) throw interviewError("Interview date, time and support contact are required");
+  if (mode === "remote" && !String(payload.meetingUrl || "").trim()) throw interviewError("Meeting link is required for a remote interview");
+  if (mode === "physical" && !String(payload.locationAddress || "").trim()) throw interviewError("Interview location is required for a physical interview");
+  return {
+    mode,
+    date,
+    time,
+    supportContact,
+    meetingUrl: mode === "remote" ? String(payload.meetingUrl).trim() : "",
+    mapLink: mode === "physical" ? String(payload.mapLink || "").trim() : "",
+    locationAddress: mode === "physical" ? String(payload.locationAddress).trim() : "",
+  };
+}
 
 employerRouter.get("/summary", requireAuth, async (req, res) => {
   if (req.user.role === "employer") {
@@ -20,7 +56,7 @@ employerRouter.get("/summary", requireAuth, async (req, res) => {
     jobs.forEach((job) => { statusCounts[job.status] = (statusCounts[job.status] || 0) + 1; });
     const applicationCounts = { total: applications.length, shortlisted: 0, interview: 0, hired: 0, rejected: 0 };
     applications.forEach((app) => { applicationCounts[app.status] = (applicationCounts[app.status] || 0) + 1; });
-    const recent = await Application.find({ employer: req.user._id }).populate("candidate job").sort({ createdAt: -1 }).limit(6);
+    const recent = await populateApplication(Application.find({ employer: req.user._id })).sort({ createdAt: -1 }).limit(6);
     return sendSuccess(res, { message: "Employer summary fetched", data: { statusCounts, applicationCounts, recent } });
   }
   if (req.user.role === "roomOwner") {
@@ -36,6 +72,28 @@ employerRouter.get("/summary", requireAuth, async (req, res) => {
 });
 
 employerRouter.post("/jobs", requireAuth, requireRole("employer"), async (req, res) => {
+  const applicationStartDate = req.body.applicationStartDate ? new Date(req.body.applicationStartDate) : null;
+  const applicationEndDate = req.body.applicationEndDate ? new Date(req.body.applicationEndDate) : null;
+  const interviewStartDate = req.body.interviewStartDate ? new Date(req.body.interviewStartDate) : null;
+  const interviewEndDate = req.body.interviewEndDate ? new Date(req.body.interviewEndDate) : null;
+  if (!applicationStartDate || !applicationEndDate || Number.isNaN(applicationStartDate.valueOf()) || Number.isNaN(applicationEndDate.valueOf())) {
+    return sendError(res, { statusCode: 400, code: "APPLICATION_DATES_REQUIRED", message: "Application opening and closing dates are required" });
+  }
+  if (applicationEndDate < applicationStartDate) {
+    return sendError(res, { statusCode: 400, code: "INVALID_APPLICATION_DATES", message: "Application closing date must be after opening date" });
+  }
+  if (!interviewStartDate || !interviewEndDate || Number.isNaN(interviewStartDate.valueOf()) || Number.isNaN(interviewEndDate.valueOf()) || interviewEndDate < interviewStartDate) {
+    return sendError(res, { statusCode: 400, code: "INVALID_INTERVIEW_DATES", message: "Enter a valid interview start and end date" });
+  }
+  if (interviewStartDate < applicationEndDate) {
+    return sendError(res, { statusCode: 400, code: "INTERVIEW_BEFORE_CLOSING", message: "Interview window must start on or after applications close" });
+  }
+  if (!req.body.interviewStartTime || !req.body.interviewEndTime) {
+    return sendError(res, { statusCode: 400, code: "INTERVIEW_TIME_REQUIRED", message: "Interview start and end time are required" });
+  }
+  if (String(req.body.interviewEndTime) <= String(req.body.interviewStartTime)) {
+    return sendError(res, { statusCode: 400, code: "INVALID_INTERVIEW_TIME", message: "Interview end time must be after start time" });
+  }
   const job = await Job.create({
     ...req.body,
     postId: makeImmutableId("postid"),
@@ -43,75 +101,103 @@ employerRouter.post("/jobs", requireAuth, requireRole("employer"), async (req, r
     immutableCompanyId: req.user.immutableId,
     companyName: req.user.companyName,
     skills: Array.isArray(req.body.skills) ? req.body.skills : String(req.body.skills || "").split(",").map((x) => x.trim()).filter(Boolean),
+    vacancies: Math.max(Number(req.body.vacancies) || 1, 1),
+    employmentType: ["fullTime", "partTime", "contract", "internship"].includes(req.body.employmentType) ? req.body.employmentType : "fullTime",
+    applicationStartDate,
+    applicationEndDate,
+    interviewStartDate,
+    interviewEndDate,
+    interviewMode: ["remote", "physical", "hybrid"].includes(req.body.interviewMode) ? req.body.interviewMode : "physical",
     status: "pending",
   });
-  // Send web push to candidates who have tokens
-  try {
-    const firebase = getFirebaseAdmin();
-    if (firebase) {
-      const candidates = await User.find({ role: 'candidate' }).select('pushTokens');
-      const tokens = candidates.flatMap(u => u.pushTokens || []);
-      if (tokens.length) {
-        await firebase.messaging().sendMulticast({ tokens, notification: { title: 'New job posted', body: job.title || 'A new job was posted' } });
-      }
-    }
-  } catch (e) {
-    console.error('Error sending job push', e);
-  }
   return sendSuccess(res, { statusCode: 201, message: "Job submitted for admin review", data: { job } });
 });
 
+employerRouter.get("/jobs", requireAuth, requireRole("employer"), async (req, res) => {
+  const jobs = await Job.find({ employer: req.user._id }).sort({ createdAt: -1 }).lean();
+  const counts = await Application.aggregate([
+    { $match: { employer: req.user._id } },
+    { $group: { _id: "$job", count: { $sum: 1 }, interviews: { $sum: { $cond: [{ $eq: ["$status", "interview"] }, 1, 0] } }, hired: { $sum: { $cond: [{ $eq: ["$status", "hired"] }, 1, 0] } } } },
+  ]);
+  const byJob = new Map(counts.map((count) => [String(count._id), count]));
+  const items = jobs.map((job) => ({ ...job, applicationStats: byJob.get(String(job._id)) || { count: 0, interviews: 0, hired: 0 } }));
+  return sendSuccess(res, { message: "Employer jobs fetched", data: { items } });
+});
+
 employerRouter.get("/applications", requireAuth, requireRole("employer"), async (req, res) => {
-  const items = await Application.find({ employer: req.user._id }).populate("candidate job").sort({ createdAt: -1 });
+  const filter = { employer: req.user._id };
+  if (req.query.status) filter.status = req.query.status;
+  if (req.query.job) filter.job = req.query.job;
+  const items = await populateApplication(Application.find(filter)).sort({ createdAt: -1 });
   res.json({ success: true, message: "Applications fetched", data: { items }, items });
 });
 
-employerRouter.post("/applications/:id/interview", requireAuth, requireRole("employer"), async (req, res) => {
-  const app = await Application.findOne({ _id: req.params.id, employer: req.user._id }).populate("candidate job");
+employerRouter.post("/applications/:id/shortlist", requireAuth, requireRole("employer"), async (req, res) => {
+  const app = await populateApplication(Application.findOne({ _id: req.params.id, employer: req.user._id }));
   if (!app) return sendError(res, { statusCode: 404, code: "APPLICATION_NOT_FOUND", message: "Application not found" });
-  app.status = "interview";
-  app.interview = req.body;
+  if (["hired", "rejected"].includes(app.status)) return sendError(res, { statusCode: 400, code: "APPLICATION_CLOSED", message: "This application is already closed" });
+  app.status = "shortlisted";
   await app.save();
-  await sendMail({ to: app.candidate.email, subject: "Interview scheduled", html: `<p>Your interview for ${app.job.title} is scheduled.</p><pre>${JSON.stringify(req.body, null, 2)}</pre>` });
+  await createNotification({ recipient: app.candidate._id, title: "Application shortlisted", body: `You have been shortlisted for ${app.job.title}.`, metadata: { type: "application_shortlisted", applicationId: String(app._id), jobId: String(app.job._id) }, sendEmail: true });
+  return sendSuccess(res, { message: "Candidate shortlisted", data: { application: app } });
+});
+
+employerRouter.post("/applications/:id/interview", requireAuth, requireRole("employer"), async (req, res) => {
+  const app = await populateApplication(Application.findOne({ _id: req.params.id, employer: req.user._id }));
+  if (!app) return sendError(res, { statusCode: 404, code: "APPLICATION_NOT_FOUND", message: "Application not found" });
+  if (["hired", "rejected"].includes(app.status)) return sendError(res, { statusCode: 400, code: "APPLICATION_CLOSED", message: "This application is already closed" });
+  let interview;
+  try {
+    interview = validateInterviewDetails(req.body);
+  } catch (error) {
+    return sendError(res, { statusCode: error.statusCode || 400, code: error.code || "INVALID_INTERVIEW_DETAILS", message: error.message });
+  }
+  app.status = "interview";
+  app.interview = interview;
+  await app.save();
+  await sendMail({ to: app.candidate.email, subject: "Interview scheduled", html: `<h2>Interview scheduled</h2><p>Your interview for <b>${app.job.title}</b> is scheduled on ${interview.date} at ${interview.time}.</p><p>Mode: ${interview.mode}</p><p>${interview.mode === "remote" ? `Meeting link: <a href="${interview.meetingUrl}">${interview.meetingUrl}</a>` : `Location: ${interview.locationAddress}`}</p><p>Support: ${interview.supportContact}</p>` });
+  await createNotification({ recipient: app.candidate._id, title: "Interview scheduled", body: `${app.job.title}: ${interview.date}, ${interview.time} (${interview.mode})`, metadata: { type: "interview", applicationId: String(app._id), jobId: String(app.job._id), ...interview } });
   try {
     const firebase = getFirebaseAdmin();
     if (firebase) {
       const tokens = app.candidate.pushTokens || [];
-      if (tokens.length) await firebase.messaging().sendMulticast({ tokens, notification: { title: 'Interview scheduled', body: `Interview for ${app.job.title}` } });
+      if (tokens.length) await firebase.messaging().sendEachForMulticast({ tokens, notification: { title: 'Interview scheduled', body: `Interview for ${app.job.title}` } });
     }
   } catch (e) { console.error('Push error', e); }
   return sendSuccess(res, { message: "Interview scheduled", data: { application: app } });
 });
 
 employerRouter.post("/applications/:id/hire", requireAuth, requireRole("employer"), async (req, res) => {
-  const app = await Application.findOne({ _id: req.params.id, employer: req.user._id }).populate("candidate job");
+  const app = await populateApplication(Application.findOne({ _id: req.params.id, employer: req.user._id }));
   if (!app) return sendError(res, { statusCode: 404, code: "APPLICATION_NOT_FOUND", message: "Application not found" });
   app.status = "hired";
   app.offer = req.body;
   await app.save();
   await sendMail({ to: app.candidate.email, subject: "You are hired", html: `<p>Congratulations. You are hired for ${app.job.title}.</p><pre>${JSON.stringify(req.body, null, 2)}</pre>` });
+  await createNotification({ recipient: app.candidate._id, title: "You are hired", body: `Congratulations! You have been hired for ${app.job.title}.`, metadata: { type: "hired", applicationId: String(app._id), jobId: String(app.job._id) } });
   try {
     const firebase = getFirebaseAdmin();
     if (firebase) {
       const tokens = app.candidate.pushTokens || [];
-      if (tokens.length) await firebase.messaging().sendMulticast({ tokens, notification: { title: 'You are hired', body: `Hired for ${app.job.title}` } });
+      if (tokens.length) await firebase.messaging().sendEachForMulticast({ tokens, notification: { title: 'You are hired', body: `Hired for ${app.job.title}` } });
     }
   } catch (e) { console.error('Push error', e); }
   return sendSuccess(res, { message: "Candidate hired", data: { application: app } });
 });
 
 employerRouter.post("/applications/:id/reject", requireAuth, requireRole("employer"), async (req, res) => {
-  const app = await Application.findOne({ _id: req.params.id, employer: req.user._id }).populate("candidate job");
+  const app = await populateApplication(Application.findOne({ _id: req.params.id, employer: req.user._id }));
   if (!app) return sendError(res, { statusCode: 404, code: "APPLICATION_NOT_FOUND", message: "Application not found" });
   app.status = "rejected";
   app.rejectionReason = req.body.reason;
   await app.save();
   await sendMail({ to: app.candidate.email, subject: "Application update", html: `<p>Your application for ${app.job.title} was not selected.</p><p>${req.body.reason || ""}</p>` });
+  await createNotification({ recipient: app.candidate._id, title: "Application update", body: `Your application for ${app.job.title} was not selected. ${req.body.reason || ""}`, metadata: { type: "application_rejected", applicationId: String(app._id), jobId: String(app.job._id) } });
   try {
     const firebase = getFirebaseAdmin();
     if (firebase) {
       const tokens = app.candidate.pushTokens || [];
-      if (tokens.length) await firebase.messaging().sendMulticast({ tokens, notification: { title: 'Application update', body: `Your application for ${app.job.title} was updated` } });
+      if (tokens.length) await firebase.messaging().sendEachForMulticast({ tokens, notification: { title: 'Application update', body: `Your application for ${app.job.title}` } });
     }
   } catch (e) { console.error('Push error', e); }
   return sendSuccess(res, { message: "Application rejected", data: { application: app } });
@@ -132,7 +218,7 @@ employerRouter.post("/rooms", requireAuth, requireRole("roomOwner"), async (req,
     if (firebase) {
       const candidates = await User.find({ role: 'candidate' }).select('pushTokens');
       const tokens = candidates.flatMap(u => u.pushTokens || []);
-      if (tokens.length) await firebase.messaging().sendMulticast({ tokens, notification: { title: 'New room posted', body: room.title || 'A new room was posted' } });
+      if (tokens.length) await firebase.messaging().sendEachForMulticast({ tokens, notification: { title: 'New room posted', body: room.title || 'A new room was posted' } });
     }
   } catch (e) { console.error('Push error', e); }
   return sendSuccess(res, { statusCode: 201, message: "Room submitted for admin review", data: { room } });

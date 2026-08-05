@@ -22,6 +22,10 @@ export async function interviewApplicant(applicationId, payload = {}) {
   });
 }
 
+export async function shortlistApplicant(applicationId) {
+  return apiFetch(`/employer/applications/${applicationId}/shortlist`, { method: "POST" });
+}
+
 export async function hireApplicant(applicationId, payload = {}) {
   return apiFetch(`/employer/applications/${applicationId}/hire`, {
     method: "POST",

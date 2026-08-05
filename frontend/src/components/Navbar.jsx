@@ -200,7 +200,7 @@ export default function Navbar() {
             minWidth: 44,
             textAlign: "center",
             backgroundColor: lang === "hi" ? "#fde68a" : "#ffffff",
-            color: lang === "hi" ? "#92400e" : "#0f172a",
+            color: lang === "hi" ? "#92400e" : "#e52424",
             boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
           }}
         >

@@ -28,7 +28,7 @@ export async function createNotification({ recipient, targetRole, title, body, c
     return item;
   }
 
-  const roleFilter = targetRole ? { role: targetRole, status: { $ne: "suspended" } } : { status: { $ne: "suspended" } };
+  const roleFilter = targetRole ? { role: targetRole, status: "verified" } : { status: "verified" };
   const users = await User.find(roleFilter).select("pushTokens email").lean();
   const docs = users.map((user) => ({ ...notificationPayload, recipient: user._id }));
   const created = docs.length ? await Notification.insertMany(docs) : [];

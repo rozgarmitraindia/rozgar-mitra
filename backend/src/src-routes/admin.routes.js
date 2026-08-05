@@ -132,6 +132,7 @@ const statusSchema = z.object({
 const notificationSchema = z.object({
   body: z.object({
     recipient: z.string().optional(),
+    targetRole: z.enum(["candidate", "employer", "roomOwner", "admin"]).optional(),
     title: z.string().trim().min(1),
     body: z.string().trim().min(1),
     channel: z.enum(["email", "push", "inApp", "system"]).default("inApp"),
@@ -203,6 +204,16 @@ async function notifyStatusChange(type, item, status, reason) {
         html: `<h2>Job ${item.status}</h2><p>${item.title || "Your job"} status changed to ${item.status}.</p><p>${reason || ""}</p>`,
       });
     }
+    if (status === "live") {
+      await createNotification({
+        targetRole: "candidate",
+        title: "New job available",
+        body: `${item.title || "A new job"}${item.companyName ? ` at ${item.companyName}` : ""} is now open for applications.`,
+        channel: "inApp",
+        sendPush: true,
+        metadata: { type: "new_job", jobId: String(item._id) },
+      });
+    }
   }
 
   if (type === "rooms") {
@@ -219,7 +230,7 @@ async function notifyStatusChange(type, item, status, reason) {
 
 function normalizeStatus(type, status) {
   if (type === "jobs" || type === "rooms") {
-    if (status === "verified" || status === "approved" || status === "approve") return "live";
+    if (status === "live" || status === "verified" || status === "approved" || status === "approve") return "live";
     if (status === "pending") return "pending";
     return "rejected";
   }
@@ -285,6 +296,8 @@ adminRouter.get("/dashboard/analytics", asyncHandler(async (_req, res) => {
     pendingJobs: await Job.countDocuments({ status: "pending" }),
     pendingRooms: await Room.countDocuments({ status: "pending" }),
     openComplaints: await Complaint.countDocuments({ status: "open" }),
+    liveJobs: await Job.countDocuments({ status: "live" }),
+    liveRooms: await Room.countDocuments({ status: "live" }),
     yearGrowth: await User.countDocuments({ createdAt: { $gte: yearStart } }),
   };
 
@@ -335,17 +348,55 @@ adminRouter.post("/admins", validate(adminCreateSchema), asyncHandler(async (req
 }));
 
 adminRouter.post("/notifications", validate(notificationSchema), asyncHandler(async (req, res) => {
-  const notification = await Notification.create(req.validated.body);
-  if (req.validated.body.channel === "email" && req.validated.body.recipient) {
-    const user = await User.findById(req.validated.body.recipient);
-    if (user?.email) {
-      await sendMail({ to: user.email, subject: req.validated.body.title, html: `<p>${req.validated.body.body}</p>` });
-      notification.status = "sent";
-      await notification.save();
-    }
-  }
-  await createActivity(req, { action: "notification.create", module: "notifications", entity: notification, status: notification.status });
-  return sendSuccess(res, { statusCode: 201, message: "Notification created", data: { item: notification } });
+  const { recipient, targetRole, title, body, channel } = req.validated.body;
+  const created = await createNotification({
+    recipient,
+    targetRole,
+    title,
+    body,
+    channel,
+    sendEmail: channel === "email",
+    sendPush: channel === "push",
+    metadata: { type: "admin_announcement" },
+  });
+  const items = Array.isArray(created) ? created : [created];
+  await createActivity(req, {
+    action: "notification.broadcast",
+    module: "notifications",
+    entity: items[0],
+    status: "sent",
+    metadata: { targetRole: targetRole || "all", recipient: recipient || null, recipientCount: items.length, channel },
+  });
+  return sendSuccess(res, {
+    statusCode: 201,
+    message: `Notification sent to ${items.length} user${items.length === 1 ? "" : "s"}`,
+    data: { item: items[0] || null, recipientCount: items.length },
+  });
+}));
+
+adminRouter.delete("/jobs/:id", asyncHandler(async (req, res) => {
+  const job = await Job.findById(req.params.id);
+  if (!job) return sendError(res, { statusCode: 404, code: "JOB_NOT_FOUND", message: "Job not found" });
+
+  const applicationCount = await Application.countDocuments({ job: job._id });
+  await createActivity(req, {
+    action: "job.delete",
+    module: "jobs",
+    entity: job,
+    status: "deleted",
+    reason: String(req.body?.reason || "Deleted by admin"),
+    metadata: { title: job.title, postId: job.postId, previousStatus: job.status, applicationCount },
+  });
+  await Promise.all([
+    Application.deleteMany({ job: job._id }),
+    User.updateMany({ savedJobs: job._id }, { $pull: { savedJobs: job._id } }),
+    Job.deleteOne({ _id: job._id }),
+  ]);
+
+  return sendSuccess(res, {
+    message: "Job permanently deleted and removed from public listings",
+    data: { id: String(job._id), deletedApplications: applicationCount },
+  });
 }));
 
 adminRouter.get("/:type", asyncHandler(async (req, res) => {

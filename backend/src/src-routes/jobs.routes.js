@@ -9,6 +9,7 @@ import { sendError, sendSuccess } from "../utils/apiResponse.js";
 export const jobsRouter = Router();
 
 jobsRouter.get("/", optionalAuth, async (req, res) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   const search = req.query.search ? new RegExp(req.query.search, "i") : null;
   const filter = { status: "live" };
   if (search) filter.$or = [{ title: search }, { role: search }, { address: search }, { companyName: search }];
@@ -27,6 +28,7 @@ jobsRouter.get("/", optionalAuth, async (req, res) => {
 });
 
 jobsRouter.get("/:id", optionalAuth, async (req, res) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   const item = await Job.findOne({ _id: req.params.id, status: "live" });
   if (!item) return sendError(res, { statusCode: 404, code: "JOB_NOT_FOUND", message: "Job not found or pending admin review" });
   const obj = item.toObject();
@@ -38,6 +40,15 @@ jobsRouter.get("/:id", optionalAuth, async (req, res) => {
 jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), async (req, res) => {
   const job = await Job.findById(req.params.id);
   if (!job || job.status !== "live") return sendError(res, { statusCode: 404, code: "JOB_NOT_LIVE", message: "Job not live" });
+  const now = new Date();
+  if (job.applicationStartDate && now < job.applicationStartDate) {
+    return sendError(res, { statusCode: 400, code: "APPLICATIONS_NOT_OPEN", message: "Applications are not open yet" });
+  }
+  if (job.applicationEndDate) {
+    const closing = new Date(job.applicationEndDate);
+    closing.setHours(23, 59, 59, 999);
+    if (now > closing) return sendError(res, { statusCode: 400, code: "APPLICATIONS_CLOSED", message: "Applications for this job are closed" });
+  }
   const existing = await Application.findOne({ job: job._id, candidate: req.user._id });
   if (existing) return sendError(res, { statusCode: 409, code: "DUPLICATE_APPLICATION", message: "You have already applied to this job" });
 

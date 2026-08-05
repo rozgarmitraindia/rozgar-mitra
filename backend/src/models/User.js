@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema({
   status: { type: String, enum: ["pending", "verified", "unverified", "rejected", "suspended"], default: "pending" },
   immutableId: { type: String, unique: true, required: true },
   fullName: String,
+  dateOfBirth: Date,
+  gender: { type: String, enum: ["male", "female", "other", "preferNotToSay"] },
   mobile: String,
   phone: String,
   email: { type: String, required: true, lowercase: true, trim: true },

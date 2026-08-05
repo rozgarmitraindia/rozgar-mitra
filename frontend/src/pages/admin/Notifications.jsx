@@ -6,6 +6,7 @@ function NotificationsComposer({ onSent }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [channel, setChannel] = useState("inApp");
+  const [targetRole, setTargetRole] = useState("");
   const [message, setMessage] = useState("");
 
   async function submit(event) {
@@ -14,7 +15,7 @@ function NotificationsComposer({ onSent }) {
     try {
       const result = await adminFetch("/admin/notifications", {
         method: "POST",
-        body: JSON.stringify({ title, body, channel }),
+        body: JSON.stringify({ title, body, channel, ...(targetRole ? { targetRole } : {}) }),
       });
       setMessage(result.message || "Notification created");
       setTitle("");
@@ -30,6 +31,16 @@ function NotificationsComposer({ onSent }) {
       <div className="section-label">Create Notification</div>
       <h2 className="form-title">Notify Users</h2>
       {message ? <div className="login-success">{message}</div> : null}
+      <div className="form-group">
+        <label className="form-label">Audience</label>
+        <select className="form-select" value={targetRole} onChange={(event) => setTargetRole(event.target.value)}>
+          <option value="">All active users</option>
+          <option value="candidate">Candidates</option>
+          <option value="employer">Employers</option>
+          <option value="roomOwner">Room Owners</option>
+          <option value="admin">Admins</option>
+        </select>
+      </div>
       <div className="form-group">
         <label className="form-label">Title</label>
         <input className="form-input" value={title} onChange={(event) => setTitle(event.target.value)} required />
@@ -47,16 +58,17 @@ function NotificationsComposer({ onSent }) {
         <label className="form-label">Body</label>
         <textarea className="form-textarea" value={body} onChange={(event) => setBody(event.target.value)} required />
       </div>
-      <button className="btn-search" type="submit">Send Notification</button>
+      <button className="btn-search" type="submit">Send to Audience</button>
     </form>
   );
 }
 
 export default function Notifications() {
+  const [refreshToken, setRefreshToken] = useState(0);
   return (
     <div className="admin-content-grid admin-tools-page">
-      <NotificationsComposer />
-      <ListModule moduleKey="notifications" />
+      <NotificationsComposer onSent={() => setRefreshToken((value) => value + 1)} />
+      <ListModule moduleKey="notifications" refreshToken={refreshToken} />
     </div>
   );
 }

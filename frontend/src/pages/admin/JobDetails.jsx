@@ -5,3 +5,5 @@ export default function JobDetails() {
       <h1 className="form-title">Job Review</h1>
       <p className="section-desc">Open a pending job from Jobs Verification to review posting metadata and approve or reject.</p>
     </section>
+  );
+}

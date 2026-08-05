@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { adminFetch, moduleTitles, modules, pickName, pickEmail, pickMeta, statusOptions } from "./adminApi.js";
 import DetailPanel from "./DetailPanel.jsx";
+import { useToast } from "../../contexts/ToastContext.jsx";
 
-export default function ListModule({ moduleKey }) {
+export default function ListModule({ moduleKey, refreshToken = 0 }) {
+  const toast = useToast();
   const moduleConfig = modules.find((item) => item.key === moduleKey);
   const defaultStatus = moduleConfig?.filter || "";
   const storageKey = `admin:list:${moduleKey}`;
@@ -23,6 +25,8 @@ export default function ListModule({ moduleKey }) {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
   const [activity, setActivity] = useState([]);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function load(page = 1) {
     setLoading(true);
@@ -60,8 +64,11 @@ export default function ListModule({ moduleKey }) {
   }
 
   async function updateStatus(nextStatus, needsReason = false) {
-    const reason = needsReason ? window.prompt("Reason required") : "";
+    const isLiveUnpublish = nextStatus === "rejected" && selected?.status === "live";
+    const reason = isLiveUnpublish ? "Unpublished by admin" : needsReason ? window.prompt("Reason required") : "";
     if (needsReason && !reason) return;
+    setUpdatingStatus(true);
+    setError("");
     try {
       const result = await adminFetch(`/admin/${moduleKey}/${selected._id}/status`, {
         method: "PATCH",
@@ -71,14 +78,41 @@ export default function ListModule({ moduleKey }) {
       setSelected(data.item);
       await load(pagination.page);
       await openDetails(data.item);
+      toast.show(`${moduleTitles[moduleKey]} status updated to ${data.item?.status || nextStatus}`, "success");
     } catch (err) {
       setError(err.message);
+      toast.show(err.message || "Status update failed", "error");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
+
+  async function deleteJob(target = selected) {
+    if (!target?._id || moduleKey !== "jobs") return;
+    const confirmed = window.confirm(`Permanently delete “${target.title || "this job"}”? It will be removed from the landing page and Jobs page. Related applications will also be deleted.`);
+    if (!confirmed) return;
+    setDeleting(true);
+    setError("");
+    try {
+      const result = await adminFetch(`/admin/jobs/${target._id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason: "Deleted by admin" }),
+      });
+      setSelected(null);
+      setActivity([]);
+      await load(1);
+      toast.show(result.message || "Job permanently deleted", "success");
+    } catch (err) {
+      setError(err.message);
+      toast.show(err.message || "Unable to delete job", "error");
+    } finally {
+      setDeleting(false);
     }
   }
 
   useEffect(() => {
     load(pagination.page);
-  }, [moduleKey, status]);
+  }, [moduleKey, status, refreshToken]);
 
   return (
     <div className="admin-content-grid">
@@ -115,6 +149,7 @@ export default function ListModule({ moduleKey }) {
                 <th>Meta</th>
                 <th>Status</th>
                 <th>Created</th>
+                {moduleKey === "jobs" ? <th>Actions</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -126,10 +161,19 @@ export default function ListModule({ moduleKey }) {
                   <td>{pickMeta(item, moduleKey)}</td>
                   <td><StatusPill status={item.status} /></td>
                   <td>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-"}</td>
+                  {moduleKey === "jobs" ? (
+                    <td>
+                      {item.status === "live" ? (
+                        <button className="btn-danger admin-row-delete" type="button" disabled={deleting} onClick={(event) => { event.stopPropagation(); deleteJob(item); }}>
+                          {deleting ? "Deleting..." : "Delete"}
+                        </button>
+                      ) : <span className="section-desc">—</span>}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
               {!items.length && !loading ? (
-                <tr><td colSpan="6">No records found.</td></tr>
+                <tr><td colSpan={moduleKey === "jobs" ? 7 : 6}>No records found.</td></tr>
               ) : null}
             </tbody>
           </table>
@@ -140,7 +184,7 @@ export default function ListModule({ moduleKey }) {
           <button className="btn-secondary" type="button" disabled={pagination.page >= pagination.pages} onClick={() => load(pagination.page + 1)}>Next</button>
         </div>
       </section>
-      <DetailPanel moduleKey={moduleKey} detail={selected} activity={activity} onClose={() => setSelected(null)} onStatus={updateStatus} />
+      <DetailPanel moduleKey={moduleKey} detail={selected} activity={activity} onClose={() => setSelected(null)} onStatus={updateStatus} statusLoading={updatingStatus} onDelete={() => deleteJob()} deleteLoading={deleting} />
     </div>
   );
 }

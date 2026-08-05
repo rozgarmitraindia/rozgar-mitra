@@ -44,6 +44,14 @@ export default function JobDetails() {
     return <section className="simple-page"><div className="info-card"><h1 className="section-title">Job not found</h1><Link className="btn-search" to="/jobs">Back to Jobs</Link></div></section>;
   }
 
+  const today = new Date();
+  const opensAt = job.applicationStartDate ? new Date(job.applicationStartDate) : null;
+  const closesAt = job.applicationEndDate ? new Date(job.applicationEndDate) : null;
+  if (closesAt) closesAt.setHours(23, 59, 59, 999);
+  const applicationsNotOpen = opensAt && today < opensAt;
+  const applicationsClosed = closesAt && today > closesAt;
+  const applicationWindowLabel = applicationsNotOpen ? "Applications not open yet" : applicationsClosed ? "Applications closed" : "Applications open";
+
   async function handleSave() {
     const session = getSession();
     if (!session || session.role !== "candidate") {
@@ -101,6 +109,8 @@ export default function JobDetails() {
             <span>{job.genderNeeded ? `Gender: ${job.genderNeeded}` : "Gender open"}</span>
             <span>{job.ageRange ? `Age: ${job.ageRange}` : "Age flexible"}</span>
             <span>{job.salary || "Salary not disclosed"}</span>
+            <span>{job.vacancies ? `${job.vacancies} vacancies` : "Vacancies not specified"}</span>
+            <span>{job.employmentType ? job.employmentType.replace(/([A-Z])/g, " $1") : "Employment type not specified"}</span>
             <span>{job.savedCount ? `${job.savedCount} saved` : "No saves yet"}</span>
           </div>
           <div className="detail-list">
@@ -110,6 +120,12 @@ export default function JobDetails() {
             <p><b>Location:</b> {job.location || job.address || "Not specified"}</p>
             <p><b>Contact:</b> {job.contactNumber || "Not available"}</p>
             <p><b>Map:</b> {job.googleMapLink ? <a href={job.googleMapLink} target="_blank" rel="noreferrer">Open map</a> : "Not provided"}</p>
+            <p><b>Apply from:</b> {job.applicationStartDate ? new Date(job.applicationStartDate).toLocaleDateString() : "Not specified"}</p>
+            <p><b>Apply until:</b> {job.applicationEndDate ? new Date(job.applicationEndDate).toLocaleDateString() : "Not specified"}</p>
+            <p><b>Interview dates:</b> {job.interviewStartDate && job.interviewEndDate ? `${new Date(job.interviewStartDate).toLocaleDateString()} – ${new Date(job.interviewEndDate).toLocaleDateString()}` : "Not specified"}</p>
+            <p><b>Interview time:</b> {job.interviewStartTime && job.interviewEndTime ? `${job.interviewStartTime} – ${job.interviewEndTime}` : "Not specified"}</p>
+            <p><b>Interview mode:</b> {job.interviewMode || "Not specified"}</p>
+            <p><b>Interview details:</b> {job.interviewDetails || "Will be shared after shortlisting"}</p>
           </div>
           <div className="detail-desc">
             <h2 className="section-title">Job Overview</h2>
@@ -124,13 +140,14 @@ export default function JobDetails() {
             <button className="btn-secondary" type="button" onClick={handleSave} disabled={saving}>
               {job.isSaved ? "Remove Save" : "Save Job"}
             </button>
-            <button className="btn-primary" type="button" onClick={handleApply} disabled={applying || job.applied}>
-              {job.applied ? "Applied" : applying ? "Applying…" : (lang === "en" ? "Apply Now" : "अभी आवेदन करें")}
+            <button className="btn-primary" type="button" onClick={handleApply} disabled={applying || job.applied || applicationsNotOpen || applicationsClosed}>
+              {job.applied ? "Applied" : applicationsNotOpen || applicationsClosed ? applicationWindowLabel : applying ? "Applying…" : (lang === "en" ? "Apply Now" : "अभी आवेदन करें")}
             </button>
           </div>
           <div className="detail-info">
             <p><strong>Status:</strong> {job.status || "Live"}</p>
             <p><strong>Posted:</strong> {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "Unknown"}</p>
+            <p><strong>Applications:</strong> {applicationWindowLabel}</p>
           </div>
         </aside>
       </div>

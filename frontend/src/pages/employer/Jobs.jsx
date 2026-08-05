@@ -1,72 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useToast } from "../../contexts/ToastContext.jsx";
 import { fetchEmployerJobs } from "./employerApi.js";
 
 export default function EmployerJobs() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const toast = useToast();
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError("");
-      try {
-        const items = await fetchEmployerJobs();
-        setJobs(items);
-      } catch (err) {
-        console.error(err);
-        setError(err.message || "Unable to load jobs.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
-
-  return (
-    <section className="section">
-      <div className="section-header">
-        <div>
-          <div className="section-label">My Jobs</div>
-          <h1 className="section-title">Job Postings</h1>
-          <p className="section-desc">Review your posted jobs and track approval status.</p>
-        </div>
-        <Link className="btn-search" to="/post-job">Post New Job</Link>
-      </div>
-
-      {error ? <div className="login-error">{error}</div> : null}
-
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Status</th>
-              <th>Posted</th>
-              <th>Salary</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="5">Loading jobs…</td></tr>
-            ) : jobs.length ? jobs.map((job) => (
-              <tr key={job._id}>
-                <td>{job.title || "Untitled"}</td>
-                <td>{job.status || "pending"}</td>
-                <td>{job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "-"}</td>
-                <td>{job.salary || "Not set"}</td>
-                <td>{job.status === "pending" ? "Pending review" : "Live"}</td>
-              </tr>
-            )) : (
-              <tr><td colSpan="5">You have no job postings yet.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
+  const [status, setStatus] = useState("all");
+  useEffect(() => { async function load() { setLoading(true); try { setJobs(await fetchEmployerJobs()); } catch (err) { setError(err.message || "Unable to load jobs."); } finally { setLoading(false); } } load(); }, []);
+  const filtered = useMemo(() => status === "all" ? jobs : jobs.filter((job) => job.status === status), [jobs, status]);
+  return <section className="section"><div className="section-header"><div><div className="section-label">Hiring portal</div><h1 className="section-title">My job postings</h1><p className="section-desc">Track pending, live and rejected jobs along with applicant response for every post.</p></div><Link className="btn-search" to="/post-job">Post New Job</Link></div>{error ? <div className="login-error">{error}</div> : null}<div className="filter-tabs">{["all", "pending", "live", "rejected"].map((item) => <button key={item} className={`filter-tab ${status === item ? "active" : ""}`} type="button" onClick={() => setStatus(item)}>{item === "all" ? "All posts" : item}</button>)}</div><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Title</th><th>Status</th><th>Application Window</th><th>Interview Window</th><th>Salary</th><th>Vacancies</th><th>Applicants</th><th>Review / action</th></tr></thead><tbody>{loading ? <tr><td colSpan="8">Loading jobs...</td></tr> : filtered.length ? filtered.map((job) => <tr key={job._id}><td><b>{job.title || "Untitled"}</b><br /><small>{job.address || "-"}</small></td><td><span className="status-pill">{job.status || "pending"}</span></td><td>{job.applicationStartDate ? new Date(job.applicationStartDate).toLocaleDateString() : "-"}<br /><small>to {job.applicationEndDate ? new Date(job.applicationEndDate).toLocaleDateString() : "-"}</small></td><td>{job.interviewStartDate ? new Date(job.interviewStartDate).toLocaleDateString() : "-"}<br /><small>to {job.interviewEndDate ? new Date(job.interviewEndDate).toLocaleDateString() : "-"} · {job.interviewStartTime || "-"}–{job.interviewEndTime || "-"}</small></td><td>{job.salary || "Not set"}</td><td>{job.vacancies || 1}</td><td>{job.applicationStats?.count || 0}<small>{job.applicationStats?.interviews ? ` · ${job.applicationStats.interviews} interviews` : ""}</small></td><td>{job.status === "rejected" ? (job.adminReason || "Rejected") : job.status === "pending" ? "Pending admin review" : <Link className="btn-secondary" to="/employer/applications">Manage applicants</Link>}</td></tr>) : <tr><td colSpan="8">No job posts in this status.</td></tr>}</tbody></table></div></section>;
 }

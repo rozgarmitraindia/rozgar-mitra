@@ -39,6 +39,7 @@ export default function Notifications() {
           <thead>
             <tr>
               <th>Title</th>
+              <th>Message</th>
               <th>Channel</th>
               <th>Status</th>
               <th>Date</th>
@@ -46,16 +47,17 @@ export default function Notifications() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="4">Loading notifications...</td></tr>
+              <tr><td colSpan="5">Loading notifications...</td></tr>
             ) : notifications.length ? notifications.map((item) => (
               <tr key={item._id}>
                 <td>{item.title || "Notification"}</td>
+                <td>{item.body || "-"}</td>
                 <td>{item.channel}</td>
                 <td>{item.status}</td>
                 <td>{item.createdAt ? new Date(item.createdAt).toLocaleString() : "-"}</td>
               </tr>
             )) : (
-              <tr><td colSpan="4">No notifications available right now.</td></tr>
+              <tr><td colSpan="5">No notifications available right now.</td></tr>
             )}
           </tbody>
         </table>

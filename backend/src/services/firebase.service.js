@@ -26,7 +26,7 @@ export async function sendPushNotification(tokens, payload) {
   const results = [];
   for (const chunk of chunks) {
     try {
-      const resp = await firebase.messaging().sendMulticast({ tokens: chunk, ...payload });
+      const resp = await firebase.messaging().sendEachForMulticast({ tokens: chunk, ...payload });
       results.push(resp);
     } catch (error) {
       console.error("Firebase push error", error);

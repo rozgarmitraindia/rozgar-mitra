@@ -2,6 +2,8 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { z } from "zod";
+import multer from "multer";
+import { Readable } from "stream";
 import { User } from "../models/User.js";
 import { makeImmutableId, makeOtp } from "../utils/id.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../utils/jwt.js";
@@ -10,8 +12,28 @@ import { getFirebaseAdmin } from "../services/firebase.service.js";
 import { asyncHandler, sendError, sendSuccess } from "../utils/apiResponse.js";
 import { getBlockedStatusResponse, sanitizeUser } from "../utils/authStatus.js";
 import { validate } from "../middleware/validate.js";
+import { cloudinary } from "../services/cloudinary.service.js";
 
 export const authRouter = Router();
+
+const registrationUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 12 },
+  fileFilter(_req, file, callback) {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    callback(null, allowed.includes(file.mimetype));
+  },
+});
+
+const registrationFiles = registrationUpload.fields([
+  { name: "profilePhoto", maxCount: 1 },
+  { name: "resume", maxCount: 1 },
+  { name: "govtId", maxCount: 1 },
+  { name: "companyLogo", maxCount: 1 },
+  { name: "companyDocument", maxCount: 1 },
+  { name: "roomPhotos", maxCount: 8 },
+  { name: "propertyDocument", maxCount: 1 },
+]);
 
 const roles = ["candidate", "employer", "roomOwner", "admin", "superAdmin"];
 const statuses = ["pending", "verified", "rejected", "suspended"];
@@ -23,6 +45,8 @@ const passwordSchema = z.string().min(8, "Password must be at least 8 characters
 const registerSchema = z.object({
   body: z.object({
     fullName: optionalString,
+    dateOfBirth: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
+    gender: z.preprocess((value) => value === "" ? undefined : value, z.enum(["male", "female", "other", "preferNotToSay"]).optional()),
     mobile: optionalString,
     email: emailSchema.optional(),
     password: passwordSchema,
@@ -102,6 +126,61 @@ function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+function normalizeRegistrationBody(req, _res, next) {
+  if (typeof req.body.skills === "string") {
+    try {
+      req.body.skills = JSON.parse(req.body.skills);
+    } catch {
+      req.body.skills = req.body.skills.split(",").map((skill) => skill.trim()).filter(Boolean);
+    }
+  }
+  next();
+}
+
+function uploadToCloudinary(file, folder) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream({ folder, resource_type: "auto" }, (error, result) => {
+      if (error) reject(error);
+      else resolve(result);
+    });
+    Readable.from(file.buffer).pipe(stream);
+  });
+}
+
+function documentFromUpload(result, type) {
+  return { type, url: result.secure_url, publicId: result.public_id };
+}
+
+async function uploadRegistrationFiles(req, role, email) {
+  const files = req.files || {};
+  if (!Object.keys(files).length) return {};
+  const safeEmail = email.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+  const folder = `rozgar-mitra/registration/${role}/${safeEmail}`;
+  const uploadOne = async (field, type) => {
+    const file = files[field]?.[0];
+    if (!file) return null;
+    return documentFromUpload(await uploadToCloudinary(file, folder), type);
+  };
+
+  const [profilePhoto, resume, govtId, companyLogo, companyDocument, propertyDocument, roomPhotos] = await Promise.all([
+    uploadOne("profilePhoto", "profile"),
+    uploadOne("resume", "resume"),
+    uploadOne("govtId", "government-id"),
+    uploadOne("companyLogo", "company-logo"),
+    uploadOne("companyDocument", "company-document"),
+    uploadOne("propertyDocument", "property-document"),
+    Promise.all((files.roomPhotos || []).map(async (file) => documentFromUpload(await uploadToCloudinary(file, folder), "room-photo"))),
+  ]);
+
+  return {
+    ...(profilePhoto || companyLogo ? { profilePhoto: profilePhoto || companyLogo } : {}),
+    ...(resume ? { resume } : {}),
+    ...(govtId || propertyDocument ? { documents: [govtId, propertyDocument].filter(Boolean) } : {}),
+    ...(companyDocument ? { companyDocs: [companyDocument] } : {}),
+    ...(roomPhotos.length ? { roomPhotos } : {}),
+  };
+}
+
 function refreshExpiryDate() {
   const days = Number(process.env.JWT_REFRESH_EXPIRES_DAYS || 7);
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
@@ -163,6 +242,7 @@ async function createAccount(req, res, role, prefix) {
     }
   }
 
+  const uploadedFiles = await uploadRegistrationFiles(req, role, email);
   const otp = makeOtp();
   const passwordHash = await bcrypt.hash(body.password, 12);
   const { password, ...profile } = body;
@@ -175,6 +255,7 @@ async function createAccount(req, res, role, prefix) {
     verificationOtp: otp,
     verificationOtpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
     status: "pending",
+    ...uploadedFiles,
   });
 
   await sendVerificationMail(user);
@@ -185,9 +266,9 @@ async function createAccount(req, res, role, prefix) {
   });
 }
 
-authRouter.post("/register/candidate", validate(registerSchema), asyncHandler((req, res) => createAccount(req, res, "candidate", "candidateid")));
-authRouter.post("/register/employer", validate(registerSchema), asyncHandler((req, res) => createAccount(req, res, "employer", "companyid")));
-authRouter.post("/register/room-owner", validate(registerSchema), asyncHandler((req, res) => createAccount(req, res, "roomOwner", "ownerid")));
+authRouter.post("/register/candidate", registrationFiles, normalizeRegistrationBody, validate(registerSchema), asyncHandler((req, res) => createAccount(req, res, "candidate", "candidateid")));
+authRouter.post("/register/employer", registrationFiles, normalizeRegistrationBody, validate(registerSchema), asyncHandler((req, res) => createAccount(req, res, "employer", "companyid")));
+authRouter.post("/register/room-owner", registrationFiles, normalizeRegistrationBody, validate(registerSchema), asyncHandler((req, res) => createAccount(req, res, "roomOwner", "ownerid")));
 
 authRouter.post("/verify-email-otp", validate(emailOtpSchema), asyncHandler(async (req, res) => {
   const { email, otp } = req.validated.body;

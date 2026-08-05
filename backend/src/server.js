@@ -1,10 +1,22 @@
 import 'dotenv/config';
+import dns from "node:dns";
 import mongoose from "mongoose";
 import app from "./app.js";
 import { bootstrapAdmin } from "./utils/bootstrapAdmin.js";
 import { initializeSocket } from "./utils/socket.js";
 
 const port = process.env.PORT || 5000;
+
+// Some local DNS resolvers refuse MongoDB Atlas SRV lookups. Configure Node's
+// resolver before Mongoose expands a mongodb+srv connection string.
+const mongoDnsServers = (process.env.MONGODB_DNS_SERVERS || "1.1.1.1,8.8.8.8")
+	.split(",")
+	.map((server) => server.trim())
+	.filter(Boolean);
+
+if (mongoDnsServers.length) {
+	dns.setServers(mongoDnsServers);
+}
 
 async function start() {
 	try {

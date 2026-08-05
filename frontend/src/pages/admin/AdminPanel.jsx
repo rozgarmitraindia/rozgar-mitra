@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Menu, X } from "lucide-react";
 import { adminFetch, modules } from "./adminApi.js";
 import Analytics from "./Analytics.jsx";
 import Admins from "./Admins.jsx";
@@ -60,11 +61,18 @@ export default function AdminPanel() {
   const totalUsers = (totals.users || 0) + (totals.employers || 0) + (totals.roomOwners || 0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const navigate = (key) => {
+    setActive(key);
+    setSidebarOpen(false);
+  };
+
   return (
-    <section className="admin-shell">
-      <button type="button" className="admin-sidebar-toggle" onClick={() => setSidebarOpen((prev) => !prev)}>
-        {sidebarOpen ? "Close menu" : "Open menu"}
+    <section className="admin-shell" data-no-translate>
+      <button type="button" className="admin-sidebar-toggle" onClick={() => setSidebarOpen((prev) => !prev)} aria-expanded={sidebarOpen}>
+        {sidebarOpen ? <X size={19} /> : <Menu size={19} />}
+        <span>{sidebarOpen ? "Close menu" : "Admin menu"}</span>
       </button>
+      {sidebarOpen && <button className="admin-sidebar-backdrop" type="button" aria-label="Close menu" onClick={() => setSidebarOpen(false)} />}
       <aside className={`admin-sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="nav-logo">
           <span className="logo-icon">RM</span>
@@ -105,7 +113,7 @@ export default function AdminPanel() {
                 key={item.key}
                 type="button"
                 className={`admin-nav ${active === item.key ? "active" : ""}`}
-                onClick={() => setActive(item.key)}
+                onClick={() => navigate(item.key)}
               >
                 <span className="nav-icon">{item.icon}</span>
                 <span>{item.label}</span>
@@ -115,7 +123,7 @@ export default function AdminPanel() {
         ))}
       </aside>
       <main className="admin-main">
-        <ActivePage onNavigate={setActive} overview={overview} />
+        <ActivePage onNavigate={navigate} overview={overview} />
       </main>
     </section>
   );

@@ -34,7 +34,9 @@ export function logout() {
   clearSession();
 }
 
-async function refreshAccessToken() {
+let refreshPromise = null;
+
+async function performTokenRefresh() {
   const session = getSession();
   if (!session?.refreshToken) return null;
 
@@ -43,14 +45,36 @@ async function refreshAccessToken() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken: session.refreshToken }),
   });
-  const data = await response.json().catch(() => ({}));
+  const responseBody = await response.json().catch(() => ({}));
   if (!response.ok) {
     clearSession();
-    throw new Error(data.message || "Unable to refresh session");
+    throw new Error(responseBody.message || "Your session has expired. Please login again.");
   }
 
-  setSession({ ...session, token: data.accessToken || data.token, refreshToken: data.refreshToken, user: data.user }, localStorage.getItem("rozgar_session") !== null);
-  return data;
+  const data = responseBody.data || responseBody;
+  const token = data.accessToken || data.token;
+  if (!token) {
+    clearSession();
+    throw new Error("Unable to renew your session. Please login again.");
+  }
+  const nextSession = {
+    ...session,
+    token,
+    refreshToken: data.refreshToken || session.refreshToken,
+    user: data.user || session.user,
+    role: data.user?.role || session.role,
+  };
+  setSession(nextSession, localStorage.getItem("rozgar_session") !== null);
+  return { ...data, token };
+}
+
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = performTokenRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
 }
 
 export async function apiFetch(path, options = {}) {

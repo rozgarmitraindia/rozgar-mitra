@@ -17,19 +17,28 @@ export default function BrowseJobs() {
   const toast = useToast();
 
   useEffect(() => {
-    async function loadJobs() {
-      setLoading(true);
+    let active = true;
+    async function loadJobs(background = false) {
+      if (!background) setLoading(true);
       setError("");
       try {
         const items = await fetchJobs();
-        setJobs(items);
+        if (active) setJobs(items);
       } catch (err) {
         setError(err.message || "Unable to load jobs.");
       } finally {
-        setLoading(false);
+        if (active && !background) setLoading(false);
       }
     }
     loadJobs();
+    const refresh = () => loadJobs(true);
+    const interval = window.setInterval(refresh, 5000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+    };
   }, []);
 
   const filtered = useMemo(() => jobs.filter((job) => {
@@ -94,6 +103,7 @@ export default function BrowseJobs() {
                 <div><h3 className="job-title">{job.title}</h3><div className="job-company">{job.companyName || job.company} • {job.location || job.address}</div></div>
               </Link>
               <div className="job-tags">{(job.skills || job.tags || []).map((tag) => <span className="job-tag" key={tag}>{tag}</span>)}</div>
+              {job.applicationEndDate ? <p className="job-deadline">Apply by {new Date(job.applicationEndDate).toLocaleDateString()}</p> : null}
               <div className="job-footer">
                 <span className="job-salary">{job.salary || "—"}</span>
                 <button className="btn-wa" type="button" onClick={() => handleSave(job)}>{job.isSaved ? "Saved" : `♡ ${lang === "en" ? "Save" : "सेव"}`}</button>

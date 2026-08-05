@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { isLoggedInAs } from "../utils/auth.js";
+import { getSession } from "../utils/auth.js";
 
 const roleMessages = {
   employer: "Post job karne ke liye employer account login compulsory hai.",
@@ -10,8 +10,10 @@ const roleMessages = {
 
 export default function ProtectedRole({ role, children }) {
   const location = useLocation();
+  const session = getSession();
+  const hasRole = session?.role === role || (role === "admin" && session?.role === "superAdmin");
 
-  if (!isLoggedInAs(role)) {
+  if (!session?.token || !hasRole) {
     return (
       <Navigate
         to="/login"

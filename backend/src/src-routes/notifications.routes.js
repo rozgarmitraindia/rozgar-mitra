@@ -12,10 +12,10 @@ async function sendMulticast(firebase, tokens, payload) {
   for (let i = 0; i < tokens.length; i += chunkSize) {
     const batch = tokens.slice(i, i + chunkSize);
     try {
-      const resp = await firebase.messaging().sendMulticast({ tokens: batch, ...payload });
+      const resp = await firebase.messaging().sendEachForMulticast({ tokens: batch, ...payload });
       results.push(resp);
     } catch (e) {
-      console.error('FCM sendMulticast error', e);
+      console.error('FCM multicast error', e);
     }
   }
   return results;
