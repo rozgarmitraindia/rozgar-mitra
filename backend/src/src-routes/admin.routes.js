@@ -192,16 +192,32 @@ async function createActivity(req, { action, module, entity, status, reason, met
 async function notifyStatusChange(type, item, status, reason) {
   if (["candidates", "employers", "room-owners"].includes(type)) {
     await sendStatusMail(item, status, reason);
+    await createNotification({
+      recipient: item._id,
+      title: `Account ${status}`,
+      body: reason ? `Your account status is ${status}. Reason: ${reason}` : `Your account status is ${status}.`,
+      channel: "inApp",
+      sendPush: true,
+      metadata: { type: "account_status", status, reason: reason || "" },
+    });
     return;
   }
 
   if (type === "jobs") {
     const employer = await User.findById(item.employer);
-    if (employer?.email || employer?.companyEmail) {
-      await sendMail({
-        to: employer.companyEmail || employer.email,
-        subject: `Rozgar Mitra Job ${item.status}`,
-        html: `<h2>Job ${item.status}</h2><p>${item.title || "Your job"} status changed to ${item.status}.</p><p>${reason || ""}</p>`,
+    if (employer) {
+      const title = status === "live" ? "Job approved and published" : "Job rejected by admin";
+      const body = status === "live"
+        ? `${item.title || "Your job"} is now live on Rozgar Mitra.`
+        : `${item.title || "Your job"} has been rejected and removed from public listings. Reason: ${reason}`;
+      await createNotification({
+        recipient: employer._id,
+        title,
+        body,
+        channel: "inApp",
+        sendEmail: true,
+        sendPush: true,
+        metadata: { type: "job_status", jobId: String(item._id), status, reason: reason || "" },
       });
     }
     if (status === "live") {
@@ -218,11 +234,19 @@ async function notifyStatusChange(type, item, status, reason) {
 
   if (type === "rooms") {
     const owner = await User.findById(item.owner);
-    if (owner?.email) {
-      await sendMail({
-        to: owner.email,
-        subject: `Rozgar Mitra Room ${item.status}`,
-        html: `<h2>Room ${item.status}</h2><p>${item.title || "Your room"} status changed to ${item.status}.</p><p>${reason || ""}</p>`,
+    if (owner) {
+      const title = status === "live" ? "Room approved and published" : "Room rejected by admin";
+      const body = status === "live"
+        ? `${item.title || "Your room"} is now live on Rozgar Mitra.`
+        : `${item.title || "Your room"} has been rejected and removed from public listings. Reason: ${reason}`;
+      await createNotification({
+        recipient: owner._id,
+        title,
+        body,
+        channel: "inApp",
+        sendEmail: true,
+        sendPush: true,
+        metadata: { type: "room_status", roomId: String(item._id), status, reason: reason || "" },
       });
     }
   }
@@ -375,16 +399,30 @@ adminRouter.post("/notifications", validate(notificationSchema), asyncHandler(as
 }));
 
 adminRouter.delete("/jobs/:id", asyncHandler(async (req, res) => {
+  const reason = String(req.body?.reason || "").trim();
+  if (!reason) return sendError(res, { statusCode: 400, code: "REASON_REQUIRED", message: "Delete reason is compulsory" });
   const job = await Job.findById(req.params.id);
   if (!job) return sendError(res, { statusCode: 404, code: "JOB_NOT_FOUND", message: "Job not found" });
 
   const applicationCount = await Application.countDocuments({ job: job._id });
+  const employer = await User.findById(job.employer);
+  if (employer) {
+    await createNotification({
+      recipient: employer._id,
+      title: "Job deleted by admin",
+      body: `${job.title || "Your job"} has been deleted by admin. Reason: ${reason}`,
+      channel: "inApp",
+      sendEmail: true,
+      sendPush: true,
+      metadata: { type: "job_deleted", jobId: String(job._id), reason },
+    });
+  }
   await createActivity(req, {
     action: "job.delete",
     module: "jobs",
     entity: job,
     status: "deleted",
-    reason: String(req.body?.reason || "Deleted by admin"),
+    reason,
     metadata: { title: job.title, postId: job.postId, previousStatus: job.status, applicationCount },
   });
   await Promise.all([

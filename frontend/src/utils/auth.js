@@ -85,10 +85,15 @@ export async function apiFetch(path, options = {}) {
   };
   if (session?.token) headers.Authorization = `Bearer ${session.token}`;
 
-  let response = await fetch(`${API_BASE}${path}`, {
-    headers,
-    ...options,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      headers,
+      ...options,
+    });
+  } catch {
+    throw new Error("Backend server connect nahi ho raha. Please backend start karein: npm run dev in backend folder.");
+  }
   let data = await response.json().catch(() => ({}));
 
   if (response.status === 401 && session?.refreshToken && path !== "/auth/refresh-token") {
@@ -100,10 +105,14 @@ export async function apiFetch(path, options = {}) {
         ...(options.headers || {}),
       };
       if (retrySession?.token) retryHeaders.Authorization = `Bearer ${retrySession.token}`;
-      response = await fetch(`${API_BASE}${path}`, {
-        headers: retryHeaders,
-        ...options,
-      });
+      try {
+        response = await fetch(`${API_BASE}${path}`, {
+          headers: retryHeaders,
+          ...options,
+        });
+      } catch {
+        throw new Error("Backend server connect nahi ho raha. Please backend start karein: npm run dev in backend folder.");
+      }
       data = await response.json().catch(() => ({}));
     }
   }
@@ -121,12 +130,17 @@ export async function apiUpload(path, formData, options = {}) {
   };
   if (session?.token) headers.Authorization = `Bearer ${session.token}`;
 
-  let response = await fetch(`${API_BASE}${path}`, {
-    method: options.method || "POST",
-    headers,
-    body: formData,
-    ...options,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method: options.method || "POST",
+      headers,
+      body: formData,
+      ...options,
+    });
+  } catch {
+    throw new Error("Backend server connect nahi ho raha. Please backend start karein: npm run dev in backend folder.");
+  }
   let data = await response.json().catch(() => ({}));
 
   if (response.status === 401 && session?.refreshToken && path !== "/auth/refresh-token") {
@@ -137,12 +151,16 @@ export async function apiUpload(path, formData, options = {}) {
         ...(options.headers || {}),
       };
       if (retrySession?.token) retryHeaders.Authorization = `Bearer ${retrySession.token}`;
-      response = await fetch(`${API_BASE}${path}`, {
-        method: options.method || "POST",
-        headers: retryHeaders,
-        body: formData,
-        ...options,
-      });
+      try {
+        response = await fetch(`${API_BASE}${path}`, {
+          method: options.method || "POST",
+          headers: retryHeaders,
+          body: formData,
+          ...options,
+        });
+      } catch {
+        throw new Error("Backend server connect nahi ho raha. Please backend start karein: npm run dev in backend folder.");
+      }
       data = await response.json().catch(() => ({}));
     }
   }

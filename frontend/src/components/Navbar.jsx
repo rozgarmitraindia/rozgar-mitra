@@ -1,20 +1,104 @@
 import { useEffect, useRef, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  Bell,
+  Briefcase,
+  ChevronDown,
+  Home,
+  Languages,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  PlusCircle,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext.jsx";
 import { useToast } from "../contexts/ToastContext.jsx";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { clearSession, getSession, isLoggedIn } from "../utils/auth.js";
+import { clearSession, getSession } from "../utils/auth.js";
 import { fetchUnreadCount, subscribeNotifications } from "../utils/notification.js";
-const links = [
-  { key: "nav.home", path: "/" },
-  { key: "nav.jobs", path: "/jobs" },
-  { key: "nav.rooms", path: "/rooms" },
-  { key: "nav.postJob", path: "/post-job" },
-  { key: "nav.postRoom", path: "/post-room" },
-  { key: "nav.about", path: "/about" },
-  { key: "nav.contact", path: "/contact" },
-  { key: "nav.login", path: "/login" },
-  { key: "nav.joinFree", path: "/join-free", cta: true },
+import { cn } from "../lib/utils.js";
+import { Button } from "./ui/button.jsx";
+
+const publicLinks = [
+  { key: "nav.home", fallback: "Home", path: "/", icon: Home },
+  { key: "nav.jobs", fallback: "Jobs", path: "/jobs", icon: Briefcase },
+  { key: "nav.rooms", fallback: "Rooms", path: "/rooms", icon: Home },
+  { key: "nav.postJob", fallback: "Post Job", path: "/post-job", icon: PlusCircle },
+  { key: "nav.postRoom", fallback: "Post Room", path: "/post-room", icon: PlusCircle },
+  { key: "nav.about", fallback: "About", path: "/about" },
+  { key: "nav.contact", fallback: "Contact", path: "/contact" },
 ];
+
+const profileLinks = {
+  candidate: [
+    { label: "Dashboard", path: "/dashboard" },
+    { label: "Browse Jobs", path: "/jobs" },
+    { label: "Browse Rooms", path: "/rooms" },
+    { label: "Saved Jobs", path: "/saved-jobs" },
+    { label: "Applied Jobs", path: "/applied-jobs" },
+    { label: "Profile", path: "/profile" },
+    { label: "Settings", path: "/settings" },
+  ],
+  employer: [
+    { label: "Dashboard", path: "/employer/dashboard" },
+    { label: "Post Job", path: "/post-job" },
+    { label: "My Jobs", path: "/employer/jobs" },
+    { label: "Applications", path: "/employer/applications" },
+    { label: "Profile", path: "/employer/profile" },
+    { label: "Settings", path: "/employer/settings" },
+  ],
+  roomOwner: [
+    { label: "Dashboard", path: "/room-owner/dashboard" },
+    { label: "Post Room", path: "/post-room" },
+    { label: "My Rooms", path: "/room-owner/rooms" },
+    { label: "Visit Requests", path: "/room-owner/visit-requests" },
+    { label: "Bookings", path: "/room-owner/bookings" },
+    { label: "Profile", path: "/room-owner/profile" },
+    { label: "Settings", path: "/room-owner/settings" },
+  ],
+  admin: [
+    { label: "Admin Panel", path: "/admin" },
+  ],
+};
+
+function getDisplayName(session) {
+  return session?.name || session?.user?.fullName || session?.user?.name || session?.user?.companyName || session?.companyName || "User";
+}
+
+function getRoleLabel(role) {
+  if (role === "roomOwner") return "Room Owner";
+  return role ? role.charAt(0).toUpperCase() + role.slice(1) : "Member";
+}
+
+function BrandMark({ onClick }) {
+  return (
+    <NavLink to="/" onClick={onClick} className="inline-flex min-w-0 items-center gap-3">
+      <span data-no-translate className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-ink text-sm font-bold text-background">रो</span>
+      <span className="min-w-0">
+        <span className="block truncate font-display text-[15px] font-bold tracking-tight text-foreground">ROZGAR MITRA</span>
+        <span className="block truncate text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Jobs · Rooms · Growth</span>
+      </span>
+    </NavLink>
+  );
+}
+
+function HeaderLink({ item, label, onClick }) {
+  const Icon = item.icon;
+  return (
+    <NavLink
+      to={item.path}
+      onClick={onClick}
+      className={({ isActive }) => cn(
+        "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-accent-foreground",
+        isActive && "bg-accent text-accent-foreground",
+      )}
+    >
+      {Icon ? <Icon className="size-4" /> : null}
+      {label}
+    </NavLink>
+  );
+}
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -27,12 +111,13 @@ export default function Navbar() {
   const [session, setSession] = useState(getSession());
   const [unreadCount, setUnreadCount] = useState(0);
   const loggedIn = Boolean(session?.token);
+  const displayName = getDisplayName(session);
+  const firstName = displayName.split(" ")[0];
+  const role = session?.role || session?.user?.role;
 
   useEffect(() => {
     function handleClick(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(event.target)) setMenuOpen(false);
     }
     window.addEventListener("mousedown", handleClick);
     return () => window.removeEventListener("mousedown", handleClick);
@@ -40,10 +125,13 @@ export default function Navbar() {
 
   useEffect(() => {
     setSession(getSession());
+    setOpen(false);
+    setMenuOpen(false);
   }, [location]);
 
   useEffect(() => {
     let cleanup = () => {};
+
     async function loadUnreadCount() {
       if (!loggedIn) {
         setUnreadCount(0);
@@ -70,143 +158,127 @@ export default function Navbar() {
     return cleanup;
   }, [loggedIn, toast]);
 
-  const profileLinks = {
-    candidate: [
-      { label: "Dashboard", path: "/dashboard" },
-      { label: "Browse Jobs", path: "/jobs" },
-      { label: "Saved Jobs", path: "/saved-jobs" },
-      { label: "Saved Rooms", path: "/rooms" },
-      { label: "Applied Jobs", path: "/applied-jobs" },
-    ],
-    employer: [
-      { label: "Dashboard", path: "/employer/dashboard" },
-      { label: "Profile", path: "/employer/profile" },
-      { label: "Settings", path: "/employer/settings" },
-      { label: "Post Job", path: "/post-job" },
-      { label: "My Jobs", path: "/employer/jobs" },
-      { label: "Applications", path: "/employer/applications" },
-    ],
-    roomOwner: [
-      { label: "Dashboard", path: "/room-owner/dashboard" },
-      { label: "Profile", path: "/room-owner/profile" },
-      { label: "Settings", path: "/room-owner/settings" },
-      { label: "Post Room", path: "/post-room" },
-      { label: "My Rooms", path: "/room-owner/rooms" },
-      { label: "Visit Requests", path: "/room-owner/visit-requests" },
-      { label: "Bookings", path: "/room-owner/bookings" },
-    ],
-    admin: [
-      { label: "Admin Panel", path: "/admin" },
-      { label: "Analytics", path: "/admin/analytics" },
-      { label: "Reports", path: "/admin/reports" },
-      { label: "Notifications", path: "/admin/notifications" },
-    ],
-  };
-
   function handleLogout() {
     clearSession();
+    setSession(null);
     setMenuOpen(false);
+    setOpen(false);
     toast.show("Logged out successfully", "success");
     navigate("/", { replace: true });
   }
 
+  function go(path) {
+    setMenuOpen(false);
+    setOpen(false);
+    navigate(path);
+  }
+
   return (
-    <nav className="navbar">
-      <NavLink className="nav-logo" to="/" onClick={() => setOpen(false)}>
-        <span className="logo-icon">RM</span>
-        <span>
-          <span className="logo-hindi">रोज़गार मित्र</span>
-          <span className="logo-en">Jobs Rooms Growth</span>
-        </span>
-      </NavLink>
-
-      <button className="mobile-toggle" type="button" onClick={() => setOpen((value) => !value)} aria-label="Toggle menu">
-        {open ? "×" : "☰"}
-      </button>
-
-      <div className={`nav-links ${open ? "open" : ""}`}>
-        {links.filter((item) => !loggedIn || !["/login", "/join-free"].includes(item.path)).map((link) => (
-          <NavLink
-            key={link.path}
-            to={link.path}
-            onClick={() => setOpen(false)}
-            className={({ isActive }) => `nav-link ${link.cta ? "nav-cta" : ""} ${isActive ? "active" : ""}`}
-          >
-            {t(link.key)}
-          </NavLink>
-        ))}
-        {loggedIn ? (
-          <div ref={menuRef} className="profile-menu-root">
-            <button type="button" className="nav-link nav-profile" onClick={() => setMenuOpen((value) => !value)}>
-              <span className="profile-icon">{session?.name?.[0] || "U"}</span>
-              <span>{session?.name?.split(" ")[0] || "Dashboard"}</span>
-              {unreadCount > 0 ? <span className="notification-badge">{unreadCount}</span> : null}
-            </button>
-            {menuOpen ? (
-              <div className="profile-dropdown">
-                <div className="profile-dropdown-header">
-                  <strong>{session?.name || "User"}</strong>
-                  <span>{session?.role || "Member"}</span>
-                </div>
-                {(profileLinks[session?.role] || []).map((link) => (
-                  <button
-                    key={link.path}
-                    type="button"
-                    className="profile-dropdown-item"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setOpen(false);
-                      navigate(link.path);
-                    }}
-                  >
-                    {link.label}
-                  </button>
-                ))}
-                <div className="profile-dropdown-divider" />
-                <button type="button" className="profile-dropdown-item logout" onClick={handleLogout}>
-                  Logout
-                </button>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {loggedIn && session?.role && open ? (
-          <div className="mobile-account-section">
-            <div className="mobile-account-title">
-              {session.role === "candidate" ? "Candidate Account" : session.role === "employer" ? "Employer Account" : "Room Owner Account"}
-            </div>
-            {(profileLinks[session.role] || []).map((link) => (
-              <button
-                key={link.path}
-                type="button"
-                className="nav-link mobile-account-link"
-                onClick={() => {
-                  setOpen(false);
-                  navigate(link.path);
-                }}
-              >
-                {link.label}
-              </button>
+    <header className="glass sticky top-0 z-50 border-b border-border/70">
+      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-8">
+          <BrandMark onClick={() => setOpen(false)} />
+          <nav className="hidden items-center gap-1 lg:flex">
+            {publicLinks.map((item) => (
+              <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} />
             ))}
-          </div>
-        ) : null}
-        <button
-          className="nav-link nav-lang"
-          onClick={toggle}
-          style={{
-            marginLeft: 8,
-            borderRadius: 6,
-            padding: "6px 8px",
-            minWidth: 44,
-            textAlign: "center",
-            backgroundColor: lang === "hi" ? "#fde68a" : "#ffffff",
-            color: lang === "hi" ? "#92400e" : "#e52424",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-          }}
-        >
-          {lang === "en" ? "EN" : "HI"}
-        </button>
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button data-no-translate variant="ghost" size="sm" onClick={toggle} aria-label="Toggle language">
+            <Languages className="size-4" />
+            {lang === "en" ? "EN" : "हि"}
+          </Button>
+
+          {!loggedIn ? (
+            <>
+              <Button className="hidden sm:inline-flex" variant="outline" size="sm" onClick={() => navigate("/login")}>
+                {t("nav.login", "Login")}
+              </Button>
+              <Button className="hidden sm:inline-flex" variant="signal" size="sm" onClick={() => navigate("/register")}>
+                Join Now
+              </Button>
+            </>
+          ) : (
+            <div ref={menuRef} className="relative hidden sm:block">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((value) => !value)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-2.5 text-sm font-semibold text-foreground shadow-float transition hover:bg-accent"
+              >
+                <span className="relative grid size-8 place-items-center rounded-lg bg-gradient-signal text-sm font-bold text-signal-foreground">
+                  {displayName[0]?.toUpperCase() || "U"}
+                  {unreadCount > 0 ? <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] text-background">{unreadCount}</span> : null}
+                </span>
+                <span className="max-w-24 truncate">{firstName}</span>
+                <ChevronDown className="size-4 text-muted-foreground" />
+              </button>
+
+              {menuOpen ? (
+                <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-border bg-card p-3 shadow-lift">
+                  <div className="border-b border-border px-2 pb-3">
+                    <strong className="block truncate text-sm">{displayName}</strong>
+                    <span className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <UserRound className="size-3.5" />
+                      {getRoleLabel(role)}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid gap-1">
+                    {(profileLinks[role] || []).map((link) => (
+                      <button key={link.path} type="button" className="rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground" onClick={() => go(link.path)}>
+                        {link.label}
+                      </button>
+                    ))}
+                    <button type="button" className="mt-1 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-destructive transition hover:bg-destructive/10" onClick={handleLogout}>
+                      <LogOut className="size-4" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          <Button className="lg:hidden" variant="ghost" size="icon" onClick={() => setOpen((value) => !value)} aria-label="Toggle menu">
+            {open ? <X className="size-5" /> : <Menu className="size-5" />}
+          </Button>
+        </div>
       </div>
-    </nav>
+
+      {open ? (
+        <div className="border-t border-border bg-card px-4 py-4 shadow-lift lg:hidden">
+          <nav className="mx-auto grid max-w-7xl gap-2">
+            {publicLinks.map((item) => (
+              <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} onClick={() => setOpen(false)} />
+            ))}
+            {!loggedIn ? (
+              <div className="mt-2 grid gap-2 sm:hidden">
+                <Button variant="outline" onClick={() => go("/login")}>{t("nav.login", "Login")}</Button>
+                <Button variant="signal" onClick={() => go("/register")}>Join Now</Button>
+              </div>
+            ) : (
+              <div className="mt-3 rounded-2xl border border-border bg-surface p-3">
+                <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                  <span className="grid size-9 place-items-center rounded-xl bg-gradient-signal text-signal-foreground">{displayName[0]?.toUpperCase() || "U"}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate">{displayName}</span>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground"><Bell className="size-3.5" />{unreadCount} notifications</span>
+                  </span>
+                </div>
+                <div className="grid gap-1">
+                  {(profileLinks[role] || []).map((link) => (
+                    <button key={link.path} type="button" className="rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground" onClick={() => go(link.path)}>
+                      {link.label}
+                    </button>
+                  ))}
+                  <button type="button" className="rounded-lg px-3 py-2 text-left text-sm font-semibold text-destructive hover:bg-destructive/10" onClick={handleLogout}>Logout</button>
+                </div>
+              </div>
+            )}
+          </nav>
+        </div>
+      ) : null}
+    </header>
   );
 }

@@ -10,6 +10,11 @@ import { sendVerificationMail } from "../services/mail.service.js";
 
 export const usersRouter = Router();
 
+usersRouter.get("/me", requireAuth, async (req, res) => {
+  const user = await User.findById(req.user._id);
+  return sendSuccess(res, { message: "Profile fetched", data: { user } });
+});
+
 usersRouter.get("/saved", requireAuth, async (req, res) => {
   const user = await User.findById(req.user._id).populate("savedJobs savedRooms");
   return sendSuccess(res, { message: "Saved items fetched", data: { savedJobs: user.savedJobs || [], savedRooms: user.savedRooms || [] } });

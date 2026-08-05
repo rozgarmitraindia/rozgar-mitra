@@ -13,7 +13,7 @@ import { createNotification } from "../services/notification.service.js";
 
 export const employerRouter = Router();
 
-const candidateBioFields = "fullName email mobile dateOfBirth gender address pincode skills experience availability about profilePhoto resume immutableId";
+const candidateBioFields = "fullName email mobile dateOfBirth gender address pincode skills experience availability about profilePhoto resume documents immutableId";
 
 function populateApplication(query) {
   return query
@@ -122,6 +122,52 @@ employerRouter.get("/jobs", requireAuth, requireRole("employer"), async (req, re
   const byJob = new Map(counts.map((count) => [String(count._id), count]));
   const items = jobs.map((job) => ({ ...job, applicationStats: byJob.get(String(job._id)) || { count: 0, interviews: 0, hired: 0 } }));
   return sendSuccess(res, { message: "Employer jobs fetched", data: { items } });
+});
+
+employerRouter.patch("/jobs/:id/application-window", requireAuth, requireRole("employer"), async (req, res) => {
+  const job = await Job.findOne({ _id: req.params.id, employer: req.user._id });
+  if (!job) return sendError(res, { statusCode: 404, code: "JOB_NOT_FOUND", message: "Job not found" });
+
+  const applicationStartDate = req.body.applicationStartDate ? new Date(req.body.applicationStartDate) : null;
+  const applicationEndDate = req.body.applicationEndDate ? new Date(req.body.applicationEndDate) : null;
+  if (!applicationStartDate || !applicationEndDate || Number.isNaN(applicationStartDate.valueOf()) || Number.isNaN(applicationEndDate.valueOf())) {
+    return sendError(res, { statusCode: 400, code: "APPLICATION_DATES_REQUIRED", message: "Application opening and closing dates are required" });
+  }
+  if (applicationEndDate < applicationStartDate) {
+    return sendError(res, { statusCode: 400, code: "INVALID_APPLICATION_DATES", message: "Application closing date must be after opening date" });
+  }
+
+  if (req.body.interviewStartDate || req.body.interviewEndDate) {
+    const interviewStartDate = req.body.interviewStartDate ? new Date(req.body.interviewStartDate) : null;
+    const interviewEndDate = req.body.interviewEndDate ? new Date(req.body.interviewEndDate) : null;
+    if (!interviewStartDate || !interviewEndDate || Number.isNaN(interviewStartDate.valueOf()) || Number.isNaN(interviewEndDate.valueOf()) || interviewEndDate < interviewStartDate) {
+      return sendError(res, { statusCode: 400, code: "INVALID_INTERVIEW_DATES", message: "Enter a valid interview start and end date" });
+    }
+    if (interviewStartDate < applicationEndDate) {
+      return sendError(res, { statusCode: 400, code: "INTERVIEW_BEFORE_CLOSING", message: "Interview window must start on or after applications close" });
+    }
+    job.interviewStartDate = interviewStartDate;
+    job.interviewEndDate = interviewEndDate;
+  }
+
+  if (req.body.interviewStartTime) job.interviewStartTime = req.body.interviewStartTime;
+  if (req.body.interviewEndTime) job.interviewEndTime = req.body.interviewEndTime;
+  if (job.interviewStartTime && job.interviewEndTime && String(job.interviewEndTime) <= String(job.interviewStartTime)) {
+    return sendError(res, { statusCode: 400, code: "INVALID_INTERVIEW_TIME", message: "Interview end time must be after start time" });
+  }
+
+  job.applicationStartDate = applicationStartDate;
+  job.applicationEndDate = applicationEndDate;
+  if (job.status === "rejected") {
+    job.status = "pending";
+    job.adminReason = "";
+  }
+  await job.save();
+
+  return sendSuccess(res, {
+    message: job.status === "pending" ? "Job dates updated and resubmitted for admin review" : "Job application window updated",
+    data: { job },
+  });
 });
 
 employerRouter.get("/applications", requireAuth, requireRole("employer"), async (req, res) => {

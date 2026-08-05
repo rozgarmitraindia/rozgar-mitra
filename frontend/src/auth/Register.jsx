@@ -1,13 +1,15 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, Smartphone } from "lucide-react";
 import { skills } from "../data/siteData.js";
 import { apiUpload, makeReadableId } from "../utils/auth.js";
-import { Mail, Smartphone, Lock, Eye, EyeOff } from "lucide-react";
+import { Button } from "../components/ui/button.jsx";
+import { cn } from "../lib/utils.js";
 
 const roleConfig = {
-  candidate: { endpoint: "/auth/register/candidate", idPrefix: "candidateid" },
-  employer: { endpoint: "/auth/register/employer", idPrefix: "companyid" },
-  owner: { endpoint: "/auth/register/room-owner", idPrefix: "ownerid" },
+  candidate: { label: "Candidate", endpoint: "/auth/register/candidate", idPrefix: "candidateid" },
+  employer: { label: "Employer", endpoint: "/auth/register/employer", idPrefix: "companyid" },
+  owner: { label: "Room Owner", endpoint: "/auth/register/room-owner", idPrefix: "ownerid" },
 };
 
 export default function Register() {
@@ -21,33 +23,29 @@ export default function Register() {
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploadingDocuments, setUploadingDocuments] = useState(false);
+  const [uploadFileNames, setUploadFileNames] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const candidateId = useMemo(() => makeReadableId("candidateid", candidateName), [candidateName]);
-  const companyId = useMemo(() => makeReadableId("companyid", companyName), [companyName]);
-  const ownerId = useMemo(() => makeReadableId("ownerid", propertyName), [propertyName]);
-
-  function toggleSkill(skill) {
-    setSelectedSkills((current) => (
-      current.includes(skill) ? current.filter((item) => item !== skill) : [...current, skill]
-    ));
-  }
-
+  const generatedId = useMemo(() => {
+    if (role === "candidate") return makeReadableId("candidateid", candidateName);
+    if (role === "employer") return makeReadableId("companyid", companyName);
+    return makeReadableId("ownerid", propertyName);
+  }, [candidateName, companyName, propertyName, role]);
 
   useEffect(() => {
-    if (error) {
-      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [error]);
 
   useEffect(() => {
-    if (message && !error) {
-      successRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+    if (message && !error) successRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [message, error]);
+
+  function toggleSkill(skill) {
+    setSelectedSkills((current) => current.includes(skill) ? current.filter((item) => item !== skill) : [...current, skill]);
+  }
 
   async function submitRegistration(event) {
     event.preventDefault();
@@ -57,104 +55,259 @@ export default function Register() {
 
     const form = new FormData(event.currentTarget);
     const password = form.get("password");
-    const confirmPassword = form.get("confirmPassword") || password;
+    const confirmPassword = form.get("confirmPassword");
+    const email = form.get("email") || form.get("companyEmail");
+
     if (password !== confirmPassword) {
       setLoading(false);
-      setError("Password aur confirm password same hone chahiye.");
+      setError("Password and confirm password must match.");
       return;
     }
 
-    const email = form.get("email") || form.get("companyEmail");
-    const hasFiles = ["profilePhoto", "resume", "govtId", "companyLogo", "companyDocument", "roomPhotos", "propertyDocument"]
-      .some((name) => Array.from(form.getAll(name)).some((file) => file instanceof File && file.size > 0));
     form.delete("confirmPassword");
     if (role === "candidate") form.append("skills", JSON.stringify(selectedSkills));
     if (role === "employer") form.append("email", String(form.get("companyEmail") || ""));
+
+    const uploadFiles = ["profilePhoto", "resume", "govtId", "companyLogo", "companyDocument", "roomPhotos", "propertyDocument"]
+      .flatMap((name) => Array.from(form.getAll(name)).filter((file) => file instanceof File && file.size > 0));
+    const hasFiles = uploadFiles.length > 0;
+    setUploadFileNames(uploadFiles.map((file) => file.name));
     setUploadingDocuments(hasFiles);
 
     try {
       const data = await apiUpload(roleConfig[role].endpoint, form);
-      setMessage(`${data.message}. OTP email par bhej diya gaya hai.`);
+      setMessage(`${data.message}. OTP has been sent to your email.`);
       navigate(`/verify?email=${encodeURIComponent(email)}`);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Registration failed");
     } finally {
       setUploadingDocuments(false);
+      setUploadFileNames([]);
       setLoading(false);
     }
   }
 
-
   return (
-    <section className="form-page">
-      <div className="section-header">
-        <div className="section-label">Join Free</div>
-        <h1 className="section-title">Free Registration / Muft Registration</h1>
-        <p className="section-desc">OTP sirf email par jayega. Account verify hone se pehle login allowed nahi hoga.</p>
+    <section className="mesh-bg min-h-[calc(100vh-8rem)] border-b border-border px-4 py-12 sm:px-6">
+      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+        <div className="lg:sticky lg:top-24">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <ShieldCheck className="size-3.5 text-verified" />
+            Verified onboarding
+          </div>
+          <h1 className="mt-6 font-display text-4xl font-extrabold leading-tight sm:text-5xl">Create your Rozgar Mitra account</h1>
+          <p className="mt-4 text-muted-foreground">Register as a candidate, employer, or room owner. Email OTP and admin verification keep the platform trusted.</p>
+          <div className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-float">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Generated ID</span>
+            <strong className="mt-2 block break-all font-display text-lg">{generatedId}</strong>
+          </div>
+        </div>
+
+        <form className="relative rounded-3xl border border-border bg-card p-6 shadow-lift sm:p-8" onSubmit={submitRegistration}>
+          {uploadingDocuments ? (
+            <div className="absolute inset-0 z-20 grid place-items-center rounded-3xl bg-card/85 p-6 backdrop-blur-sm">
+              <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5 text-center shadow-lift">
+                <Loader2 className="mx-auto size-8 animate-spin text-signal" />
+                <h2 className="mt-4 font-display text-xl font-semibold">Documents uploading...</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Please wait. Files are being attached to your profile for admin verification.</p>
+                {uploadFileNames.length ? (
+                  <div className="mt-4 grid gap-2 text-left">
+                    {uploadFileNames.map((name) => (
+                      <div key={name} className="truncate rounded-lg bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">{name}</div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {error ? <div ref={errorRef} className="mb-5 rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm font-semibold text-destructive">{error}</div> : null}
+          {message ? <div ref={successRef} className="mb-5 rounded-2xl border border-verified/20 bg-verified/10 p-4 text-sm font-semibold text-foreground">{message}</div> : null}
+
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(roleConfig).map(([value, config]) => (
+              <button
+                type="button"
+                key={value}
+                onClick={() => setRole(value)}
+                className={cn(
+                  "rounded-xl border px-3 py-2 text-sm font-semibold transition",
+                  role === value ? "border-signal bg-signal/15 text-foreground" : "border-border bg-muted text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {config.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 grid gap-5">
+            {role === "candidate" ? (
+              <CandidateFields candidateName={candidateName} setCandidateName={setCandidateName} selectedSkills={selectedSkills} toggleSkill={toggleSkill} />
+            ) : null}
+            {role === "employer" ? <EmployerFields companyName={companyName} setCompanyName={setCompanyName} /> : null}
+            {role === "owner" ? <OwnerFields propertyName={propertyName} setPropertyName={setPropertyName} /> : null}
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <PasswordField label="Password" name="password" show={showPassword} onToggle={() => setShowPassword((current) => !current)} />
+              <PasswordField label="Confirm Password" name="confirmPassword" show={showConfirmPassword} onToggle={() => setShowConfirmPassword((current) => !current)} />
+            </div>
+
+            <Button variant="signal" size="xl" disabled={loading}>
+              {loading ? (uploadingDocuments ? "Uploading documents..." : "Creating account...") : "Register & Send OTP"}
+            </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account? <Link to="/login" className="font-semibold text-signal">Sign in</Link>
+            </p>
+          </div>
+        </form>
       </div>
-      <form className="form-card animated-card" onSubmit={submitRegistration}>
-        {error ? <div ref={errorRef} className="login-error">{error}</div> : null}
-        {message ? <div ref={successRef} className="login-success">{message}</div> : null}
-
-        <div className="role-tabs">
-          <button type="button" className={`role-tab ${role === "candidate" ? "active" : ""}`} onClick={() => setRole("candidate")}>Candidate</button>
-          <button type="button" className={`role-tab ${role === "employer" ? "active" : ""}`} onClick={() => setRole("employer")}>Employer</button>
-          <button type="button" className={`role-tab ${role === "owner" ? "active" : ""}`} onClick={() => setRole("owner")}>Room Owner</button>
-        </div>
-
-        {role === "candidate" && (
-          <>
-            <h2 className="form-title">Candidate Registration</h2>
-            <p className="form-subtitle">Email OTP verification compulsory.</p>
-            <div className="form-group"><label className="form-label">Full Name *</label><input className="form-input" name="fullName" value={candidateName} onChange={(event) => setCandidateName(event.target.value)} placeholder="e.g. Sunita Sharma" required /></div>
-            <div className="generated-id"><span>Unique User ID</span><input value={candidateId} readOnly /></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Mobile Number *</label><div className="input-icon-group"><span className="input-icon"><Smartphone size={16} /></span><input className="form-input" name="mobile" required /></div></div><div className="form-group"><label className="form-label">Email ID *</label><div className="input-icon-group"><span className="input-icon"><Mail size={16} /></span><input className="form-input" name="email" type="email" required /></div></div></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Date of Birth</label><input className="form-input" name="dateOfBirth" type="date" /></div><div className="form-group"><label className="form-label">Gender</label><select className="form-select" name="gender" defaultValue=""><option value="">Select gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option><option value="preferNotToSay">Prefer not to say</option></select></div></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Address *</label><input className="form-input" name="address" required /></div><div className="form-group"><label className="form-label">Pincode *</label><input className="form-input" name="pincode" required /></div></div>
-            <div className="form-group"><label className="form-label">Skills</label><div className="skills-select">{skills.map((skill) => <button type="button" key={skill} className={`skill-chip ${selectedSkills.includes(skill) ? "selected" : ""}`} onClick={() => toggleSkill(skill)}>{skill}</button>)}</div></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Experience</label><input className="form-input" name="experience" /></div><div className="form-group"><label className="form-label">Availability</label><input className="form-input" name="availability" /></div></div>
-            <div className="form-group"><label className="form-label">About Yourself</label><textarea className="form-textarea" name="about" /></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Profile Photo</label><input className="form-input" name="profilePhoto" type="file" /></div><div className="form-group"><label className="form-label">Resume Upload</label><input className="form-input" name="resume" type="file" /></div></div>
-            <div className="form-group"><label className="form-label">Government ID Upload</label><input className="form-input" name="govtId" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" /></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Password</label><div className="input-icon-group password"><span className="input-icon"><Lock size={16} /></span><input className="form-input" name="password" type={showPassword ? "text" : "password"} required /><button type="button" className="input-icon-button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div><div className="form-group"><label className="form-label">Confirm Password</label><div className="input-icon-group password"><span className="input-icon"><Lock size={16} /></span><input className="form-input" name="confirmPassword" type={showConfirmPassword ? "text" : "password"} required /><button type="button" className="input-icon-button" onClick={() => setShowConfirmPassword((current) => !current)} aria-label={showConfirmPassword ? "Hide password" : "Show password"}>{showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div></div>
-          </>
-        )}
-
-        {role === "employer" && (
-          <>
-            <h2 className="form-title">Employer Registration</h2>
-            <p className="form-subtitle">Company ID unique aur non-editable hogi.</p>
-            <div className="form-group"><label className="form-label">Company Name *</label><input className="form-input" name="companyName" value={companyName} onChange={(event) => setCompanyName(event.target.value)} required /></div>
-            <div className="generated-id"><span>Unique Company ID</span><input value={companyId} readOnly /></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Company Email *</label><div className="input-icon-group"><span className="input-icon"><Mail size={16} /></span><input className="form-input" name="companyEmail" type="email" required /></div></div><div className="form-group"><label className="form-label">Whatsapp Mobile Number *</label><div className="input-icon-group"><span className="input-icon"><Smartphone size={16} /></span><input className="form-input" name="companyPhone" required /></div></div></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Alternate Number</label><input className="form-input" name="alternateNumber" /></div><div className="form-group"><label className="form-label">Company Location</label><input className="form-input" name="companyLocation" /></div></div>
-            <div className="form-group"><label className="form-label">Address</label><textarea className="form-textarea" name="address" /></div>
-            <div className="form-group"><label className="form-label">Google Map</label><input className="form-input" name="googleMapLink" placeholder="https://maps.google.com/..." /></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Company Logo</label><input className="form-input" name="companyLogo" type="file" accept="image/*" /></div><div className="form-group"><label className="form-label">Proof of Document Upload</label><input className="form-input" name="companyDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" /></div></div>
-            <div className="form-group"><label className="form-label">Password</label><div className="input-icon-group password"><span className="input-icon"><Lock size={16} /></span><input className="form-input" name="password" type={showPassword ? "text" : "password"} required /><button type="button" className="input-icon-button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div>
-          </>
-        )}
-
-        {role === "owner" && (
-          <>
-            <h2 className="form-title">Room Owner Registration</h2>
-            <p className="form-subtitle">Hotel/PG verification document upload compulsory.</p>
-            <div className="form-group"><label className="form-label">Hotel / PG Name *</label><input className="form-input" name="propertyName" value={propertyName} onChange={(event) => setPropertyName(event.target.value)} required /></div>
-            <div className="generated-id"><span>Unique Room Owner ID</span><input value={ownerId} readOnly /></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Email *</label><div className="input-icon-group"><span className="input-icon"><Mail size={16} /></span><input className="form-input" name="email" type="email" required /></div></div><div className="form-group"><label className="form-label">Phone Number *</label><div className="input-icon-group"><span className="input-icon"><Smartphone size={16} /></span><input className="form-input" name="mobile" required /></div></div></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Alternate Number</label><input className="form-input" name="alternateNumber" /></div><div className="form-group"><label className="form-label">Google Map Link</label><input className="form-input" name="googleMapLink" /></div></div>
-            <div className="form-group"><label className="form-label">Address</label><textarea className="form-textarea" name="address" /></div>
-            <div className="form-row"><div className="form-group"><label className="form-label">Room Photos</label><input className="form-input" name="roomPhotos" type="file" accept="image/*" multiple /></div><div className="form-group"><label className="form-label">Proof of Hotel/PG Document *</label><input className="form-input" name="propertyDocument" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required /></div></div>
-            <div className="form-group"><label className="form-label">Password</label><div className="input-icon-group password"><span className="input-icon"><Lock size={16} /></span><input className="form-input" name="password" type={showPassword ? "text" : "password"} required /><button type="button" className="input-icon-button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div>
-          </>
-        )}
-        <button className="btn-primary" disabled={loading} type="submit">{loading ? <><span className="loading-spinner" />{uploadingDocuments ? "Uploading documents & saving..." : "Creating account..."}</> : "Register & Send OTP on Email"}</button>
-
-        <div style={{ marginTop: 12, textAlign: 'center', fontSize: 14 }}>
-          Already have an account? <Link to="/login" style={{ fontWeight: 700 }}>Sign in</Link>
-        </div>
-
-      </form>
     </section>
+  );
+}
+
+function CandidateFields({ candidateName, setCandidateName, selectedSkills, toggleSkill }) {
+  return (
+    <>
+      <Field label="Full Name" name="fullName" value={candidateName} onChange={(event) => setCandidateName(event.target.value)} placeholder="e.g. Sunita Sharma" required />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <IconField label="Mobile Number" name="mobile" icon={Smartphone} placeholder="10 digit mobile number" required />
+        <IconField label="Email ID" name="email" icon={Mail} type="email" placeholder="candidate@example.com" required />
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Date of Birth" name="dateOfBirth" type="date" />
+        <SelectField label="Gender" name="gender" options={[["", "Select gender"], ["male", "Male"], ["female", "Female"], ["other", "Other"], ["preferNotToSay", "Prefer not to say"]]} />
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Address" name="address" placeholder="House, area, city" required />
+        <Field label="Pincode" name="pincode" placeholder="226001" required />
+      </div>
+      <div>
+        <label className="text-sm font-semibold">Skills</label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {skills.map((skill) => (
+            <button type="button" key={skill} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", selectedSkills.includes(skill) ? "border-signal bg-signal/15" : "border-border bg-muted text-muted-foreground")} onClick={() => toggleSkill(skill)}>
+              {skill}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Experience" name="experience" placeholder="2 years / Fresher" />
+        <Field label="Availability" name="availability" placeholder="Immediate / 15 days" />
+      </div>
+      <TextArea label="About Yourself" name="about" placeholder="Write a short profile summary" />
+      <div className="grid gap-5 sm:grid-cols-3">
+        <FileField label="Profile Photo" name="profilePhoto" accept="image/*" />
+        <FileField label="Resume Upload" name="resume" />
+        <FileField label="Government ID" name="govtId" accept="image/jpeg,image/png,image/webp,application/pdf" required />
+      </div>
+    </>
+  );
+}
+
+function EmployerFields({ companyName, setCompanyName }) {
+  return (
+    <>
+      <Field label="Company Name" name="companyName" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="e.g. Shakti Auto Components" required />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <IconField label="Company Email" name="companyEmail" icon={Mail} type="email" placeholder="hr@company.com" required />
+        <IconField label="WhatsApp Mobile Number" name="companyPhone" icon={Smartphone} placeholder="10 digit company number" required />
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Alternate Number" name="alternateNumber" placeholder="Optional contact number" />
+        <Field label="Company Location" name="companyLocation" placeholder="City, State" />
+      </div>
+      <TextArea label="Address" name="address" placeholder="Company complete address" />
+      <Field label="Google Map Link" name="googleMapLink" placeholder="https://maps.google.com/..." />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FileField label="Company Logo" name="companyLogo" accept="image/*" />
+        <FileField label="Proof Document" name="companyDocument" accept="image/jpeg,image/png,image/webp,application/pdf" />
+      </div>
+    </>
+  );
+}
+
+function OwnerFields({ propertyName, setPropertyName }) {
+  return (
+    <>
+      <Field label="Hotel / PG Name" name="propertyName" value={propertyName} onChange={(event) => setPropertyName(event.target.value)} placeholder="e.g. Shree Worker Stay" required />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <IconField label="Email" name="email" icon={Mail} type="email" placeholder="owner@example.com" required />
+        <IconField label="Phone Number" name="mobile" icon={Smartphone} placeholder="10 digit mobile number" required />
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Alternate Number" name="alternateNumber" placeholder="Optional contact number" />
+        <Field label="Google Map Link" name="googleMapLink" placeholder="https://maps.google.com/..." />
+      </div>
+      <TextArea label="Address" name="address" placeholder="Property complete address" />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <FileField label="Room Photos" name="roomPhotos" accept="image/*" multiple />
+        <FileField label="Hotel/PG Proof Document" name="propertyDocument" accept="image/jpeg,image/png,image/webp,application/pdf" required />
+      </div>
+    </>
+  );
+}
+
+function Field({ label, className, ...props }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold">{label}</span>
+      <input className={cn("mt-2 h-12 w-full rounded-xl border border-border bg-muted px-3 text-sm outline-none transition focus:ring-2 focus:ring-signal", className)} {...props} />
+    </label>
+  );
+}
+
+function IconField({ icon: Icon, label, className, ...props }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold">{label}</span>
+      <span className="relative mt-2 block">
+        <Icon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <input className={cn("h-12 w-full rounded-xl border border-border bg-muted px-3 pl-10 text-sm outline-none transition focus:ring-2 focus:ring-signal", className)} {...props} />
+      </span>
+    </label>
+  );
+}
+
+function PasswordField({ label, name, show, onToggle }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold">{label}</span>
+      <span className="relative mt-2 block">
+        <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <input className="h-12 w-full rounded-xl border border-border bg-muted px-3 pl-10 pr-10 text-sm outline-none transition focus:ring-2 focus:ring-signal" name={name} type={show ? "text" : "password"} placeholder="Minimum 8 characters" minLength={8} required />
+        <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={onToggle} aria-label={show ? "Hide password" : "Show password"}>
+          {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      </span>
+    </label>
+  );
+}
+
+function SelectField({ label, name, options }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold">{label}</span>
+      <select className="mt-2 h-12 w-full rounded-xl border border-border bg-muted px-3 text-sm outline-none transition focus:ring-2 focus:ring-signal" name={name} defaultValue="">
+        {options.map(([value, labelText]) => <option key={labelText} value={value}>{labelText}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function TextArea({ label, ...props }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold">{label}</span>
+      <textarea className="mt-2 min-h-28 w-full rounded-xl border border-border bg-muted px-3 py-3 text-sm outline-none transition focus:ring-2 focus:ring-signal" {...props} />
+    </label>
+  );
+}
+
+function FileField({ label, ...props }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold">{label}</span>
+      <input className="mt-2 w-full rounded-xl border border-border bg-muted px-3 py-3 text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-gradient-signal file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-signal-foreground" type="file" {...props} />
+    </label>
   );
 }

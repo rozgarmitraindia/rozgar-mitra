@@ -41,9 +41,7 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
       const nextPagination = data.pagination || { ...pagination, page };
       setPagination(nextPagination);
       sessionStorage.setItem(storageKey, JSON.stringify({ search, status, pagination: nextPagination }));
-      if (typeof window !== "undefined") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -64,9 +62,13 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
   }
 
   async function updateStatus(nextStatus, needsReason = false) {
-    const isLiveUnpublish = nextStatus === "rejected" && selected?.status === "live";
-    const reason = isLiveUnpublish ? "Unpublished by admin" : needsReason ? window.prompt("Reason required") : "";
-    if (needsReason && !reason) return;
+    const requiresReason = needsReason || nextStatus === "rejected";
+    const reason = requiresReason ? window.prompt("Reason required") : "";
+    if (requiresReason && !String(reason || "").trim()) {
+      toast.show("Reason is compulsory", "error");
+      return;
+    }
+
     setUpdatingStatus(true);
     setError("");
     try {
@@ -89,14 +91,20 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
 
   async function deleteJob(target = selected) {
     if (!target?._id || moduleKey !== "jobs") return;
-    const confirmed = window.confirm(`Permanently delete “${target.title || "this job"}”? It will be removed from the landing page and Jobs page. Related applications will also be deleted.`);
+    const reason = window.prompt(`Delete reason required for "${target.title || "this job"}"`);
+    if (!String(reason || "").trim()) {
+      toast.show("Delete reason is compulsory", "error");
+      return;
+    }
+    const confirmed = window.confirm(`Permanently delete "${target.title || "this job"}"? It will be removed from the landing page and Jobs page. Related applications will also be deleted.`);
     if (!confirmed) return;
+
     setDeleting(true);
     setError("");
     try {
       const result = await adminFetch(`/admin/jobs/${target._id}`, {
         method: "DELETE",
-        body: JSON.stringify({ reason: "Deleted by admin" }),
+        body: JSON.stringify({ reason }),
       });
       setSelected(null);
       setActivity([]);
@@ -126,13 +134,7 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
         </div>
         {error ? <div className="login-error">{error}</div> : null}
         <div className="admin-toolbar">
-          <input
-            className="form-input"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && load(1)}
-            placeholder="Search by name, email, ID, title..."
-          />
+          <input className="form-input" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Enter" && load(1)} placeholder="Search by name, email, ID, title..." />
           <select className="form-select" value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="">All Status</option>
             {(statusOptions[moduleKey] || []).map((item) => <option value={item} key={item}>{item}</option>)}
@@ -163,18 +165,16 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
                   <td>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-"}</td>
                   {moduleKey === "jobs" ? (
                     <td>
-                      {item.status === "live" ? (
+                      {item.status === "live" || item.status === "rejected" ? (
                         <button className="btn-danger admin-row-delete" type="button" disabled={deleting} onClick={(event) => { event.stopPropagation(); deleteJob(item); }}>
                           {deleting ? "Deleting..." : "Delete"}
                         </button>
-                      ) : <span className="section-desc">—</span>}
+                      ) : <span className="section-desc">-</span>}
                     </td>
                   ) : null}
                 </tr>
               ))}
-              {!items.length && !loading ? (
-                <tr><td colSpan={moduleKey === "jobs" ? 7 : 6}>No records found.</td></tr>
-              ) : null}
+              {!items.length && !loading ? <tr><td colSpan={moduleKey === "jobs" ? 7 : 6}>No records found.</td></tr> : null}
             </tbody>
           </table>
         </div>

@@ -11,7 +11,7 @@ export default ({ mode }) => {
       const url = new URL(apiBase);
       proxyTarget = `${url.protocol}//${url.host}`;
     } catch (error) {
-      proxyTarget = "http://localhost:3000";
+        proxyTarget = "http://localhost:3000";
     }
   }
 

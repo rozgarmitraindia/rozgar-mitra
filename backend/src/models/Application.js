@@ -6,6 +6,13 @@ const applicationSchema = new mongoose.Schema({
   employer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   aadhaarUrl: String,
   governmentIdUrl: String,
+  candidateDocuments: [{
+    type: String,
+    url: String,
+    publicId: String,
+  }],
+  candidateResumeUrl: String,
+  candidateProfilePhotoUrl: String,
   status: { type: String, enum: ["submitted", "shortlisted", "interview", "hired", "rejected"], default: "submitted" },
   interview: {
     mode: String,

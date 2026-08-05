@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getSession } from "../../utils/auth.js";
+import { ArrowLeft, BadgeCheck, Briefcase, CheckCircle2, MapPin, Upload, Users, Wallet } from "lucide-react";
+import { getSession, setSession } from "../../utils/auth.js";
 import { useLanguage } from "../../contexts/LanguageContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
-import { applyJob, fetchJobDetail, toggleJobSaved } from "./candidateApi.js";
+import { applyJob, fetchCurrentUser, fetchJobDetail, toggleJobSaved, uploadGovernmentId } from "./candidateApi.js";
+import { Button } from "../../components/ui/button.jsx";
+import { StatusPill } from "../../components/primitives/StatusPill.jsx";
+
+function governmentIdDoc(user) {
+  return (user?.documents || []).find((doc) => ["government-id", "govt-id", "aadhaar", "document"].includes(String(doc.type || "").toLowerCase()) && doc.url);
+}
 
 export default function JobDetails() {
   const { jobId } = useParams();
@@ -14,6 +21,8 @@ export default function JobDetails() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [uploadingGovernmentId, setUploadingGovernmentId] = useState(false);
+  const [governmentIdFile, setGovernmentIdFile] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -33,7 +42,7 @@ export default function JobDetails() {
   }, [jobId]);
 
   if (loading) {
-    return <section className="section"><div className="section-header"><h1 className="section-title">Loading job details…</h1></div></section>;
+    return <section className="section"><div className="section-header"><h1 className="section-title">Loading job details...</h1></div></section>;
   }
 
   if (error) {
@@ -80,77 +89,134 @@ export default function JobDetails() {
       navigate("/login", { state: { from: `/jobs/${jobId}`, role: "candidate", error: "Apply karne ke liye candidate login compulsory hai." } });
       return;
     }
+
     setApplying(true);
     try {
-      await applyJob(jobId, {});
+      let currentUser = await fetchCurrentUser().catch(() => session.user);
+      let idDocument = governmentIdDoc(currentUser);
+
+      if (!idDocument?.url) {
+        if (!governmentIdFile) {
+          toast.show("Government ID upload compulsory hai. Please ID select karke apply karein.", "error");
+          return;
+        }
+        setUploadingGovernmentId(true);
+        idDocument = await uploadGovernmentId(governmentIdFile);
+        currentUser = {
+          ...(currentUser || session.user || {}),
+          documents: [...(currentUser?.documents || session.user?.documents || []), idDocument].filter(Boolean),
+        };
+        setSession({ ...session, user: currentUser }, localStorage.getItem("rozgar_session") !== null);
+      }
+
+      await applyJob(jobId, { governmentIdUrl: idDocument.url });
       toast.show("Your application has been submitted.", "success");
       setJob((current) => ({ ...current, applied: true }));
     } catch (err) {
       toast.show(err.message || "Unable to submit application.", "error");
     } finally {
+      setUploadingGovernmentId(false);
       setApplying(false);
     }
   }
 
+  const skills = job.skills || job.tags || [];
+
   return (
-    <section className="section">
-      <div className="section-header">
-        <div>
-          <div className="section-label">Job Details</div>
-          <h1 className="section-title">{job.title}</h1>
-          <p className="section-desc">{job.companyName || job.company} • {job.location || job.address}</p>
+    <>
+      <section className="mesh-bg border-b border-border">
+        <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+          <Link to="/jobs" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="size-4" />Back to jobs
+          </Link>
+          <div className="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+            <div>
+              <StatusPill status={job.status || "live"} />
+              <h1 className="mt-3 font-display text-4xl font-bold leading-tight">{job.title}</h1>
+              <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">{job.companyName || job.company || "Employer"}<BadgeCheck className="size-4 text-verified" /></span>
+                <span className="inline-flex items-center gap-1.5"><MapPin className="size-4 text-signal" />{job.location || job.address || "Location not specified"}</span>
+                <span className="inline-flex items-center gap-1.5"><Briefcase className="size-4 text-signal" />{job.employmentType || job.role || "Job role"}</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 md:justify-end">
+              <Button variant="signal" size="lg" onClick={handleApply} disabled={applying || job.applied || applicationsNotOpen || applicationsClosed}>
+                {job.applied ? "Applied" : applicationsNotOpen || applicationsClosed ? applicationWindowLabel : uploadingGovernmentId ? "Uploading ID..." : applying ? "Applying..." : (lang === "en" ? "Apply Now" : "अभी आवेदन करें")}
+              </Button>
+              <Button variant="outline" size="lg" onClick={handleSave} disabled={saving}>{job.isSaved ? "Saved" : "Save"}</Button>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="detail-grid">
-        <article className="form-card animated-card">
-          <div className="detail-meta">
-            <span>{job.role || job.designation || "Role not specified"}</span>
-            <span>{job.genderNeeded ? `Gender: ${job.genderNeeded}` : "Gender open"}</span>
-            <span>{job.ageRange ? `Age: ${job.ageRange}` : "Age flexible"}</span>
-            <span>{job.salary || "Salary not disclosed"}</span>
-            <span>{job.vacancies ? `${job.vacancies} vacancies` : "Vacancies not specified"}</span>
-            <span>{job.employmentType ? job.employmentType.replace(/([A-Z])/g, " $1") : "Employment type not specified"}</span>
-            <span>{job.savedCount ? `${job.savedCount} saved` : "No saves yet"}</span>
-          </div>
-          <div className="detail-list">
-            <p><b>Skills:</b> {(job.skills || job.tags || []).join(", ") || "Not specified"}</p>
-            <p><b>Requirements:</b> {job.requirements || job.description || "Not specified"}</p>
-            <p><b>Benefits:</b> {job.benefits || "No details"}</p>
-            <p><b>Location:</b> {job.location || job.address || "Not specified"}</p>
-            <p><b>Contact:</b> {job.contactNumber || "Not available"}</p>
-            <p><b>Map:</b> {job.googleMapLink ? <a href={job.googleMapLink} target="_blank" rel="noreferrer">Open map</a> : "Not provided"}</p>
-            <p><b>Apply from:</b> {job.applicationStartDate ? new Date(job.applicationStartDate).toLocaleDateString() : "Not specified"}</p>
-            <p><b>Apply until:</b> {job.applicationEndDate ? new Date(job.applicationEndDate).toLocaleDateString() : "Not specified"}</p>
-            <p><b>Interview dates:</b> {job.interviewStartDate && job.interviewEndDate ? `${new Date(job.interviewStartDate).toLocaleDateString()} – ${new Date(job.interviewEndDate).toLocaleDateString()}` : "Not specified"}</p>
-            <p><b>Interview time:</b> {job.interviewStartTime && job.interviewEndTime ? `${job.interviewStartTime} – ${job.interviewEndTime}` : "Not specified"}</p>
-            <p><b>Interview mode:</b> {job.interviewMode || "Not specified"}</p>
-            <p><b>Interview details:</b> {job.interviewDetails || "Will be shared after shortlisting"}</p>
-          </div>
-          <div className="detail-desc">
-            <h2 className="section-title">Job Overview</h2>
-            <p>{job.description || "No full description available."}</p>
-          </div>
-        </article>
+      <section className="mx-auto grid max-w-5xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1.6fr_1fr]">
+        <div className="grid gap-8">
+          <article className="rounded-2xl border border-border bg-card p-6 shadow-float">
+            <h2 className="font-display text-xl font-semibold">Job Overview</h2>
+            <p className="mt-3 leading-7 text-muted-foreground">{job.description || job.about || "No full description available."}</p>
+          </article>
 
-        <aside className="form-card animated-card">
-          <h2 className="form-title">Candidate Actions</h2>
-          <p className="form-subtitle">Save this job or submit your application with your candidate profile.</p>
-          <div className="job-actions">
-            <button className="btn-secondary" type="button" onClick={handleSave} disabled={saving}>
-              {job.isSaved ? "Remove Save" : "Save Job"}
-            </button>
-            <button className="btn-primary" type="button" onClick={handleApply} disabled={applying || job.applied || applicationsNotOpen || applicationsClosed}>
-              {job.applied ? "Applied" : applicationsNotOpen || applicationsClosed ? applicationWindowLabel : applying ? "Applying…" : (lang === "en" ? "Apply Now" : "अभी आवेदन करें")}
-            </button>
+          <article className="rounded-2xl border border-border bg-card p-6 shadow-float">
+            <h2 className="font-display text-xl font-semibold">Details</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Info label="Role" value={job.role || job.designation || "Not specified"} />
+              <Info label="Salary" value={job.salary || "Salary not disclosed"} />
+              <Info label="Vacancies" value={job.vacancies ? `${job.vacancies} vacancies` : "Not specified"} />
+              <Info label="Gender" value={job.genderNeeded || "Open"} />
+              <Info label="Apply from" value={job.applicationStartDate ? new Date(job.applicationStartDate).toLocaleDateString() : "Not specified"} />
+              <Info label="Apply until" value={job.applicationEndDate ? new Date(job.applicationEndDate).toLocaleDateString() : "Not specified"} />
+              <Info label="Interview mode" value={job.interviewMode || "Not specified"} />
+              <Info label="Contact" value={job.contactNumber || "Not available"} />
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-border bg-card p-6 shadow-float">
+            <h2 className="font-display text-xl font-semibold">Skills & Requirements</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {skills.length ? skills.map((skill) => <span key={skill} className="rounded-full bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground">{skill}</span>) : <span className="text-sm text-muted-foreground">Not specified</span>}
+            </div>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">{job.requirements || "Requirements will be shared by employer."}</p>
+          </article>
+        </div>
+
+        <aside className="h-fit rounded-2xl border border-border bg-card p-6 shadow-float lg:sticky lg:top-24">
+          <h2 className="font-display text-xl font-semibold">Candidate Actions</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">Government ID is compulsory before applying. If it is not already in your profile, upload it here.</p>
+
+          <label className="mt-5 block rounded-2xl border border-dashed border-border bg-surface p-4">
+            <span className="inline-flex items-center gap-2 text-sm font-semibold"><Upload className="size-4 text-signal" />Government ID</span>
+            <input className="mt-3 w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-gradient-signal file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-signal-foreground" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setGovernmentIdFile(event.target.files?.[0] || null)} />
+            <span className="mt-2 block text-xs text-muted-foreground">Aadhaar, voter ID, driving licence, or any valid government ID.</span>
+          </label>
+
+          <div className="mt-6 grid gap-3">
+            <Button variant="outline" onClick={handleSave} disabled={saving}>{job.isSaved ? "Remove Save" : "Save Job"}</Button>
+            <Button variant="signal" onClick={handleApply} disabled={applying || job.applied || applicationsNotOpen || applicationsClosed}>
+              {job.applied ? "Applied" : uploadingGovernmentId ? "Uploading ID..." : applying ? "Applying..." : "Apply Now"}
+            </Button>
           </div>
-          <div className="detail-info">
-            <p><strong>Status:</strong> {job.status || "Live"}</p>
-            <p><strong>Posted:</strong> {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "Unknown"}</p>
-            <p><strong>Applications:</strong> {applicationWindowLabel}</p>
+
+          <div className="mt-6 rounded-xl bg-verified/10 p-4 text-xs leading-5 text-muted-foreground">
+            <CheckCircle2 className="mb-2 size-4 text-verified" />
+            Your uploaded ID and profile documents will be visible to this employer in the applicants panel after you apply.
+          </div>
+
+          <div className="mt-5 grid gap-3 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-2"><Wallet className="size-4 text-signal" />{job.salary || "Salary not disclosed"}</span>
+            <span className="inline-flex items-center gap-2"><Users className="size-4 text-signal" />{job.vacancies || 1} vacancies</span>
+            <span className="inline-flex items-center gap-2"><Briefcase className="size-4 text-signal" />{applicationWindowLabel}</span>
           </div>
         </aside>
-      </div>
-    </section>
+      </section>
+    </>
+  );
+}
+
+function Info({ label, value }) {
+  return (
+    <div className="rounded-xl bg-muted p-3">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <p className="mt-1 text-sm font-semibold">{value || "-"}</p>
+    </div>
   );
 }

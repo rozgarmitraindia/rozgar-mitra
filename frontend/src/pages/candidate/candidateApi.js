@@ -1,4 +1,4 @@
-import { apiFetch } from "../../utils/auth.js";
+import { apiFetch, apiUpload } from "../../utils/auth.js";
 
 export async function fetchJobs(search = "") {
   const path = search ? `/jobs?search=${encodeURIComponent(search)}` : "/jobs";
@@ -20,6 +20,11 @@ export async function fetchSavedJobs() {
 export async function fetchCandidateSummary() {
   const result = await apiFetch("/user/summary");
   return result.data || {};
+}
+
+export async function fetchCurrentUser() {
+  const result = await apiFetch("/user/me");
+  return result.data?.user || null;
 }
 
 export async function fetchCandidateApplications() {
@@ -60,4 +65,12 @@ export async function removeSavedJob(jobId) {
 
 export async function applyJob(jobId, payload = {}) {
   return apiFetch(`/jobs/${jobId}/applications`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function uploadGovernmentId(file) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("type", "government-id");
+  const result = await apiUpload("/upload/documents", form);
+  return result.data?.document;
 }

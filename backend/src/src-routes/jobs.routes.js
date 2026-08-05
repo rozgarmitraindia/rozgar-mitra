@@ -51,6 +51,16 @@ jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyn
   }
   const existing = await Application.findOne({ job: job._id, candidate: req.user._id });
   if (existing) return sendError(res, { statusCode: 409, code: "DUPLICATE_APPLICATION", message: "You have already applied to this job" });
+  const candidateDocuments = req.user.documents || [];
+  const governmentId = candidateDocuments.find((doc) => ["government-id", "govt-id", "aadhaar", "document"].includes(String(doc.type || "").toLowerCase()));
+  const governmentIdUrl = req.body.governmentIdUrl || governmentId?.url;
+  if (!governmentIdUrl) {
+    return sendError(res, {
+      statusCode: 400,
+      code: "GOVERNMENT_ID_REQUIRED",
+      message: "Government ID upload compulsory hai. Please ID upload karke job apply karein.",
+    });
+  }
 
   try {
     const application = await Application.create({
@@ -58,7 +68,10 @@ jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyn
       candidate: req.user._id,
       employer: job.employer,
       aadhaarUrl: req.body.aadhaarUrl,
-      governmentIdUrl: req.body.governmentIdUrl,
+      governmentIdUrl,
+      candidateDocuments,
+      candidateResumeUrl: req.user.resume?.url || "",
+      candidateProfilePhotoUrl: req.user.profilePhoto?.url || "",
     });
     await sendMail({ to: req.user.email, subject: "Application submitted", html: `<p>Your application for ${job.title} has been submitted.</p>` });
     return sendSuccess(res, { statusCode: 201, message: "Application submitted", data: { application } });

@@ -1,160 +1,82 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { categories, rooms as sampleRooms } from "../data/siteData.js";
+import { motion } from "motion/react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Briefcase,
+  CheckCircle2,
+  Home as HomeIcon,
+  MapPin,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { fetchJobs, fetchRooms } from "../pages/candidate/candidateApi.js";
+import { Button } from "../components/ui/button.jsx";
+import { Input } from "../components/ui/input.jsx";
+import { Reveal } from "../components/primitives/Reveal.jsx";
+import { StatCard } from "../components/primitives/StatCard.jsx";
+import { StatusPill } from "../components/primitives/StatusPill.jsx";
 
-// Maps a real Job document from the backend to the same shape the JobCard component expects.
-function mapJob(job) {
-  return {
-    id: job._id,
-    icon: "💼",
-    title: job.title,
-    company: job.companyName || job.employerName || "Employer",
-    location: job.address || "Location not specified",
-    salary: job.salary || "Salary not disclosed",
-    tags: job.skills && job.skills.length ? job.skills.slice(0, 3) : [job.role].filter(Boolean),
-  };
-}
-
-// Maps a real Room document from the backend to the same shape the room card markup expects.
-function mapRoom(room) {
-  return {
-    id: room._id,
-    icon: "🏠",
-    title: room.title || room.propertyName,
-    owner: room.propertyName || "Room Owner",
-    location: room.address || "Location not specified",
-    rent: room.rent || "Rent not disclosed",
-    tags: room.amenities && room.amenities.length ? room.amenities.slice(0, 3) : [room.roomType].filter(Boolean),
-  };
-}
-
-function CategoryCard({ item }) {
-  return (
-    <Link to="/jobs" className="category-card animated-card">
-      <span className="cat-icon">{item[0]}</span>
-      <span className="cat-name-hi">{item[1]}</span>
-      <span className="cat-name-en">{item[2]}</span>
-      <span className="cat-count">{item[3]}</span>
-    </Link>
-  );
-}
-
-function JobCard({ job }) {
-  return (
-    <article className="job-card animated-card">
-      <Link to={`/jobs/${job.id}`} className="job-card-header">
-        <div className="job-icon">{job.icon}</div>
-        <div>
-          <h3 className="job-title">{job.title}</h3>
-          <div className="job-company">{job.company} • {job.location}</div>
-        </div>
-      </Link>
-      <div className="job-tags">{job.tags.map((tag) => <span key={tag} className="job-tag">{tag}</span>)}</div>
-      <div className="job-footer">
-        <span className="job-salary">{job.salary}</span>
-        <Link to={`/jobs/${job.id}`} className="btn-wa">📱 Apply</Link>
-      </div>
-    </article>
-  );
-}
-
-const overviewBlocks = [
-  {
-    title: "Candidate Flow",
-    icon: "👤",
-    items: ["Register", "Email OTP", "Complete Profile", "Search Job", "Apply", "Employer Review", "Interview", "Selection"],
-  },
-  {
-    title: "Employer Flow",
-    icon: "🏢",
-    items: ["Register", "Admin Verification", "Post Job", "Admin Approval", "Job Live", "Review Applications", "Hire"],
-  },
-  {
-    title: "Room Owner Flow",
-    icon: "🏠",
-    items: ["Register", "Verification", "Add Room Photos", "Admin Approval", "Room Live", "Visit Requests", "Booking"],
-  },
-  {
-    title: "User Room Booking",
-    icon: "🛏️",
-    items: ["Browse Rooms", "View Photos", "Login/Register", "Book Visit Slot", "Submit Request", "WhatsApp Chat", "Finalize Booking"],
-  },
+const roleCards = [
+  [Users, "Candidate", "Verified jobs dekho, save/apply karo, aur room options bhi browse karo.", "/register"],
+  [Briefcase, "Employer", "Jobs post karo, applications manage karo, aur hiring pipeline track karo.", "/register"],
+  [HomeIcon, "Room Owner", "Rooms list karo, visit requests dekho, aur bookings manage karo.", "/register"],
+  [ShieldCheck, "Admin", "Moderation, verification, complaints aur reports ka control center.", "/admin"],
 ];
 
-const platformFeatures = [
-  ["Room Booking Features", "Multiple Photos, Google Map, Visit Slot Booking, WhatsApp Chat, Inquiry Form, Availability Status"],
-  ["Admin Module", "Manage Users, Verify Companies, Approve Jobs & Rooms, Reports, Complaints, Notifications"],
-  ["Notifications", "Email Notifications, Push Notifications, In-app Notification Bell"],
-  ["Extra Features", "Wishlist, Resume Upload, Vacancy Counter, Gender Preference, Skills Filter, AI Ready Architecture"],
-  ["Technology Stack", "React, Tailwind CSS, Node.js, Express.js, MongoDB, JWT, Email OTP, Cloudinary, Firebase FCM, Resend"],
-  ["Why Rozgar Mitra?", "All-in-one platform, verified and secure, easy to use, smart notifications, growth for everyone"],
+const trustCards = [
+  [ShieldCheck, "Document-checked employers", "Employer verification state candidates ko clearly dikhta hai."],
+  [BadgeCheck, "Owner-verified rooms", "Rooms approval ke baad hi public browsing me trusted signal aata hai."],
+  [Users, "Reason on rejection", "Admin rejection silent nahi hota; reason ke saath status update hota hai."],
+  [Sparkles, "Live status clarity", "Jobs aur rooms me live, pending, rejected states visible rahte hain."],
 ];
 
-function PlatformOverview() {
-  return (
-    <section className="section" style={{ background: "var(--gray-50)" }}>
-      <div className="section-header">
-        <div className="section-label">Project Overview</div>
-        <h2 className="section-title">One Platform - Jobs, Rooms & Growth</h2>
-        <p className="section-desc">Candidate, Employer, Room Owner aur Admin ek hi verified platform par kaam karenge.</p>
-      </div>
+const categories = ["Technology", "Sales", "Manufacturing", "Logistics", "Healthcare", "Hospitality"];
 
-      <div className="jobs-grid">
-        {overviewBlocks.map((block) => (
-          <article className="job-card animated-card" key={block.title}>
-            <div className="job-card-header">
-              <div className="job-icon">{block.icon}</div>
-              <div>
-                <h3 className="job-title">{block.title}</h3>
-                <div className="job-company">Verified workflow</div>
-              </div>
-            </div>
-            <div className="job-tags">{block.items.map((item) => <span className="job-tag" key={item}>{item}</span>)}</div>
-          </article>
-        ))}
-      </div>
+function getJobId(job) {
+  return job._id || job.id;
+}
 
-      <div className="category-grid" style={{ maxWidth: 1120, marginTop: 24 }}>
-        {platformFeatures.map(([title, text]) => (
-          <article className="category-card animated-card" key={title}>
-            <span className="cat-name-hi">{title}</span>
-            <span className="cat-name-en" style={{ lineHeight: 1.6 }}>{text}</span>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
+function getRoomId(room) {
+  return room._id || room.id;
+}
+
+function getSalary(job) {
+  if (job.salary) return job.salary;
+  if (job.salaryMin || job.salaryMax) return [job.salaryMin, job.salaryMax].filter(Boolean).join(" - ");
+  return "Salary not disclosed";
 }
 
 export default function Home() {
   const [jobs, setJobs] = useState([]);
-  const [rooms, setRooms] = useState(sampleRooms);
+  const [rooms, setRooms] = useState([]);
   const [loadingLive, setLoadingLive] = useState(true);
-
-  // ⚡ COUNTERS START FROM LOW VALUES (500, 100, 50) ⚡
-  const [workersCount, setWorkersCount] = useState(500);
-  const [jobsCount, setJobsCount] = useState(100);
-  const [roomsCount, setRoomsCount] = useState(50);
 
   useEffect(() => {
     let cancelled = false;
+
     async function loadLiveData(background = false) {
       try {
         const [liveJobs, liveRooms] = await Promise.all([fetchJobs(), fetchRooms()]);
         if (cancelled) return;
-        setJobs(liveJobs.map(mapJob));
-        if (liveRooms.length) setRooms(liveRooms.map(mapRoom));
+        setJobs(liveJobs);
+        setRooms(liveRooms);
       } catch (err) {
         console.error("Failed to load live jobs/rooms", err);
       } finally {
         if (!cancelled && !background) setLoadingLive(false);
       }
     }
+
     loadLiveData();
     const refresh = () => loadLiveData(true);
     const interval = window.setInterval(refresh, 5000);
     window.addEventListener("focus", refresh);
+
     return () => {
       cancelled = true;
       window.clearInterval(interval);
@@ -162,244 +84,223 @@ export default function Home() {
     };
   }, []);
 
-  // 📈 INITIAL SMOOTH COUNT-UP ANIMATION FROM 500 TO 10,000+ ON LOAD
-  useEffect(() => {
-    const targetWorkers = 10000;
-    const targetJobs = 2000;
-    const targetRooms = 850;
-
-    const duration = 3000; // 3 seconds smooth climb
-    const frameDuration = 1000 / 60;
-    const totalFrames = Math.round(duration / frameDuration);
-    let frame = 0;
-
-    const timer = setInterval(() => {
-      frame++;
-      const progress = frame / totalFrames;
-      // Smooth deceleration curve
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-
-      setWorkersCount(Math.floor(500 + (targetWorkers - 500) * easeOut));
-      setJobsCount(Math.floor(100 + (targetJobs - 100) * easeOut));
-      setRoomsCount(Math.floor(50 + (targetRooms - 50) * easeOut));
-
-      if (frame >= totalFrames) {
-        clearInterval(timer);
-      }
-    }, frameDuration);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  // 🔄 REAL-TIME CONTINUOUS INCREMENT (5 seconds ke bad 1-2 new users add hone lagenge)
-  useEffect(() => {
-    const liveInterval = setInterval(() => {
-      setWorkersCount((prev) => prev + Math.floor(Math.random() * 3) + 1);
-
-      if (Math.random() > 0.6) setJobsCount((prev) => prev + 1);
-      if (Math.random() > 0.7) setRoomsCount((prev) => prev + 1);
-    }, 4500);
-
-    return () => clearInterval(liveInterval);
-  }, []);
-
   return (
     <>
-      {/* 🌟 ENHANCED BEAUTIFUL HERO SECTION 🌟 */}
-      <section className="hero" style={{ textAlign: "center", display: "flex", justifyContent: "center", padding: "4rem 1rem" }}>
-        <div className="hero-content animated-card" style={{ maxWidth: "850px", margin: "0 auto", width: "100%" }}>
-          
-          <div className="hero-badge" style={{ display: "inline-flex", alignItems: "center", gap: "6px", margin: "0 auto 1rem auto" }}>
-            <span className="live-dot"></span> 🇮🇳 India's Trusted Local Platform
-          </div>
-
-          <h1 className="hero-title" data-no-translate style={{ textAlign: "center" }}>
-            रोज़गार मित्र - <span>Jobs, Rooms & Growth</span>
-          </h1>
-
-          {/* ⚡ BEAUTIFUL SCROLLING HINDI MARQUEE TEXT ⚡ */}
-          <div className="hero-ticker" style={{ 
-            overflow: "hidden", 
-            whiteSpace: "nowrap", 
-            margin: "1.2rem auto", 
-            padding: "8.5px 16px",
-            background: "rgba(255, 255, 255, 0.75)",
-            backdropFilter: "blur(8px)",
-            borderRadius: "50px",
-            boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
-            maxWidth: "680px"
-          }}>
-            <p className="hero-subtitle marquee-text" style={{ 
-              display: "inline-block", 
-              margin: 0,
-              fontSize: "1.05rem",
-              fontWeight: "500",
-              color: "var(--gray-800, #1f2937)",
-              animation: "scrollHindi 15s linear infinite" 
-            }}>
-              ✨ कामगारों को verified jobs, employers को trusted candidates, और room owners को genuine bookings दिलाने वाला simple और fast platform. ✨
+      <section className="relative overflow-hidden bg-background">
+        <div className="mesh-bg absolute inset-0" />
+        <div className="rule-grid absolute inset-0 opacity-50" />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-16 sm:px-6 lg:pt-24">
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]">
+              <Sparkles className="size-3.5 text-signal" />
+              Verified jobs & rooms
+            </div>
+            <h1 className="mt-6 font-display text-5xl font-extrabold leading-[1.02] sm:text-6xl lg:text-7xl">
+              <span className="block">Find work and a roof</span>
+              <span className="block bg-gradient-signal bg-clip-text text-transparent">Verified by humans</span>
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
+              Rozgar Mitra brings trusted employers, verified rooms, and visible moderation into one premium platform for India’s mobile workforce.
             </p>
-          </div>
+          </motion.div>
 
-          {/* 🔍 CENTER-ALIGNED SEARCH BOX 🔍 */}
-          <div className="search-box" style={{ 
-            margin: "2rem auto", 
-            justifyContent: "center", 
-            maxWidth: "650px", 
-            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)" 
-          }}>
-            <input placeholder="काम खोजें / Search jobs" />
-            <select defaultValue="">
-              <option value="" disabled>City / शहर</option>
-              <option>Lucknow</option>
-              <option>Delhi</option>
-              <option>Mumbai</option>
-              <option>Kanpur</option>
-            </select>
-            <Link className="btn-search" to="/jobs">Search</Link>
-          </div>
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.12, ease: [0.16, 1, 0.3, 1] }} className="mt-10 max-w-3xl rounded-3xl border border-border bg-card p-2 shadow-lift">
+            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1">
+              <button className="relative h-10 rounded-xl bg-gradient-signal text-sm font-semibold text-signal-foreground">Jobs</button>
+              <Link to="/rooms" className="grid h-10 place-items-center rounded-xl text-sm font-semibold text-muted-foreground transition hover:text-foreground">Rooms</Link>
+            </div>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 p-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input className="h-12 rounded-xl border-transparent bg-muted pl-9" placeholder="Search role, city, company, or room area" />
+              </div>
+              <Link to="/jobs"><Button variant="signal" size="xl">Search <ArrowRight className="size-4" /></Button></Link>
+            </div>
+          </motion.div>
 
-          {/* 📈 ANIMATED INCREASING HERO STATS 📈 */}
-          <div className="hero-stats" style={{ justifyContent: "center" }}>
-            <div>
-              <span className="stat-num count-anim" key={workersCount}>
-                {workersCount.toLocaleString()}+
-              </span>
-              <span className="stat-label">Verified Workers</span>
-            </div>
-            <div>
-              <span className="stat-num count-anim" key={jobsCount}>
-                {jobsCount.toLocaleString()}+
-              </span>
-              <span className="stat-label">Active Jobs</span>
-            </div>
-            <div>
-              <span className="stat-num count-anim" key={roomsCount}>
-                {roomsCount.toLocaleString()}+
-              </span>
-              <span className="stat-label">Rooms & PG</span>
-            </div>
-            <div>
-              <span className="stat-num" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                <span className="live-pulse-dot"></span> Live
-              </span>
-              <span className="stat-label">Smart Alerts</span>
-            </div>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard value={jobs.length || 4820} label="Live jobs" />
+            <StatCard value={rooms.length || 2136} label="Rooms" />
+            <StatCard value={912} label="Employers" />
+            <StatCard value={387} label="Hires" />
           </div>
-
         </div>
       </section>
 
-      {/* INLINE CSS FOR SLIDE-UP ANIMATION & MARQUEE */}
-      <style>{`
-        @keyframes scrollHindi {
-          0% { transform: translateX(100%); }
-          100% { transform: translateX(-100%); }
-        }
-        .hero-ticker:hover .marquee-text {
-          animation-play-state: paused;
-        }
-
-        /* ⬆️ BOTTOM TO TOP SLIDE-UP NUMBER ANIMATION */
-        .count-anim {
-          display: inline-block;
-          animation: slideUpNum 0.35s ease-out forwards;
-        }
-
-        @keyframes slideUpNum {
-          0% {
-            opacity: 0.3;
-            transform: translateY(12px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        /* Green Live Pulse Dot Style */
-        .live-dot, .live-pulse-dot {
-          width: 8px;
-          height: 8px;
-          background-color: #22c55e;
-          border-radius: 50%;
-          display: inline-block;
-          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-          animation: pulseGreen 1.8s infinite;
-        }
-        @keyframes pulseGreen {
-          0% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-          }
-          70% {
-            transform: scale(1);
-            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
-          }
-          100% {
-            transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
-          }
-        }
-      `}</style>
-
-      <PlatformOverview />
-
-      <section className="section">
-        <div className="section-header">
-          <div className="section-label">Popular Categories</div>
-          <h2 className="section-title">किस काम के लिए खोज रहे हैं?</h2>
-          <p className="section-desc">Browse jobs by category - same simple UI as client preview.</p>
+      <section className="border-y border-border bg-surface">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.2fr]">
+          <Reveal>
+            <h2 className="font-display text-3xl font-bold sm:text-4xl">Trust built for India’s real work movement</h2>
+            <p className="mt-4 text-muted-foreground">
+              Public browsing remains open. Apply, save, post, and booking actions move users through login at the right time.
+            </p>
+            <Link to="/jobs"><Button className="mt-6" variant="ink">Browse live jobs <ArrowRight className="size-4" /></Button></Link>
+          </Reveal>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {trustCards.map(([Icon, title, text], index) => (
+              <Reveal key={title} delay={index * 0.06} className="rounded-2xl border border-border bg-card p-5 shadow-float">
+                <Icon className="size-5 text-signal" />
+                <h3 className="mt-3 font-display text-base font-semibold">{title}</h3>
+                <p className="mt-1.5 text-sm text-muted-foreground">{text}</p>
+              </Reveal>
+            ))}
+          </div>
         </div>
-        <div className="category-grid">{categories.map((item) => <CategoryCard key={item[2]} item={item} />)}</div>
       </section>
 
-      <section className="section" style={{ background: "var(--gray-50)" }}>
-        <div className="section-header">
-          <div className="section-label">Latest Jobs</div>
-          <h2 className="section-title">आज की नई नौकरियां</h2>
-          <p className="section-desc">Admin approved jobs live on platform.</p>
-        </div>
-        {loadingLive ? <p className="section-desc">Loading live jobs...</p> : jobs.length ? <div className="jobs-grid">{jobs.slice(0, 3).map((job) => <JobCard key={job.id} job={job} />)}</div> : <div className="form-card"><p className="section-desc" style={{ margin: 0 }}>No approved jobs are live right now.</p></div>}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+        <SectionHead title="Latest approved jobs" subtitle="Backend se live approved jobs yahin public browse honge." href="/jobs" />
+        {loadingLive ? (
+          <div className="mt-8 rounded-2xl border border-border bg-card p-8 text-muted-foreground shadow-float">Loading live jobs...</div>
+        ) : jobs.length ? (
+          <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {jobs.slice(0, 3).map((job, index) => <Reveal key={getJobId(job)} delay={index * 0.05}><LiveJobCard job={job} /></Reveal>)}
+          </div>
+        ) : (
+          <EmptyState text="No approved jobs are live right now." />
+        )}
       </section>
 
-      <section className="section">
-        <div className="section-header">
-          <div className="section-label">Rooms</div>
-          <h2 className="section-title">Verified Rooms & PG</h2>
-          <p className="section-desc">Room owner listing admin review ke baad hi live hogi.</p>
+      <section className="border-t border-border bg-surface">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+          <SectionHead title="Verified rooms & PG" subtitle="Rooms backend se connected hain aur approval ke baad public me dikhenge." href="/rooms" />
+          {rooms.length ? (
+            <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {rooms.slice(0, 3).map((room, index) => <Reveal key={getRoomId(room)} delay={index * 0.05}><LiveRoomCard room={room} /></Reveal>)}
+            </div>
+          ) : (
+            <EmptyState text="No approved rooms are live right now." />
+          )}
         </div>
-        <div className="rooms-grid">
-          {rooms.map((room) => (
-            <article className="room-card animated-card" key={room.id}>
-              <Link to={`/rooms/${room.id}`} className="job-card-header"><div className="room-icon">{room.icon}</div><div><h3 className="room-title">{room.title}</h3><div className="room-location">{room.owner} • {room.location}</div></div></Link>
-              <div className="job-tags">{room.tags.map((tag) => <span className="job-tag" key={tag}>{tag}</span>)}</div>
-              <div className="job-footer"><span className="room-price">{room.rent}</span><Link className="btn-wa" to={`/rooms/${room.id}`}>Book Visit</Link></div>
-            </article>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+        <Reveal>
+          <h2 className="font-display text-3xl font-bold">Browse by work category</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Quick entry points for the most common India hiring flows.</p>
+        </Reveal>
+        <div className="mt-8 flex flex-wrap gap-2">
+          {categories.map((category) => (
+            <Link key={category} to="/jobs" className="rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-muted-foreground transition hover:border-signal hover:text-foreground">
+              {category}
+            </Link>
           ))}
         </div>
       </section>
 
-      <section className="section hiw-bg">
-        <div className="section-header">
-          <div className="section-label">How It Works</div>
-          <h2 className="section-title" style={{ color: "white" }}>Complete Workflow / पूरा प्रोसेस</h2>
-        </div>
-        <div className="hiw-grid">
-          {[
-            ["1", "Register / रजिस्टर", "Candidate, employer, room owner account with OTP/email verification."],
-            ["2", "Admin Verification", "Documents and details verified before live access."],
-            ["3", "Apply / Book", "Candidate applies for job or user books room visit."],
-            ["4", "Interview / Visit", "Employer schedules interview, room owner accepts visit."],
-          ].map((step) => (
-            <div className="hiw-step animated-card" key={step[0]}>
-              <div className="step-num">{step[0]}</div>
-              <div className="step-title">{step[1]}</div>
-              <p className="step-desc">{step[2]}</p>
-            </div>
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+        <Reveal><h2 className="font-display text-3xl font-bold">Choose your role</h2></Reveal>
+        <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {roleCards.map(([Icon, title, text, href], index) => (
+            <Reveal key={title} delay={index * 0.05}>
+              <Link to={href} className="group flex h-full flex-col rounded-2xl border border-border bg-card p-6 shadow-float transition-all hover:-translate-y-0.5 hover:shadow-lift">
+                <span className="grid size-11 place-items-center rounded-xl bg-gradient-signal text-signal-foreground"><Icon className="size-5" /></span>
+                <h3 className="mt-4 font-display text-lg font-semibold">{title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{text}</p>
+                <span className="mt-auto inline-flex gap-1.5 pt-4 text-sm font-semibold text-signal">Continue <ArrowRight className="size-4 transition group-hover:translate-x-1" /></span>
+              </Link>
+            </Reveal>
           ))}
         </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
+        <Reveal className="relative overflow-hidden rounded-3xl bg-gradient-ink px-8 py-14 text-background sm:px-14">
+          <div className="mesh-bg absolute inset-0 opacity-70" />
+          <div className="relative max-w-xl">
+            <h2 className="font-display text-3xl font-bold sm:text-4xl">Start simple. Launch fast. Grow big.</h2>
+            <p className="mt-4 opacity-80">Candidate, employer, aur room owner flows existing backend ke saath connected rahenge.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to="/register"><Button variant="signal" size="xl">Join Now</Button></Link>
+              <Link to="/jobs"><Button variant="glass" size="xl">Browse Jobs</Button></Link>
+            </div>
+          </div>
+        </Reveal>
       </section>
     </>
+  );
+}
+
+function SectionHead({ title, subtitle, href }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
+      <div>
+        <h2 className="font-display text-3xl font-bold">{title}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+      <Link to={href}><Button variant="outline" size="sm">View all</Button></Link>
+    </div>
+  );
+}
+
+function LiveJobCard({ job }) {
+  const id = getJobId(job);
+  const skills = job.skills || job.tags || [job.role].filter(Boolean);
+
+  return (
+    <article className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link to={`/jobs/${id}`} className="font-display text-lg font-semibold leading-tight hover:text-signal">{job.title}</Link>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+            {job.companyName || job.company || job.employerName || "Employer"}
+            {job.companyVerified || job.verificationStatus === "verified" ? <BadgeCheck className="size-4 text-verified" /> : null}
+          </p>
+        </div>
+        <StatusPill status={job.status || "live"} />
+      </div>
+      <div className="mt-5 grid gap-2 text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-2"><MapPin className="size-4 text-signal" />{job.location || job.address || "Location not specified"}</span>
+        <span className="inline-flex items-center gap-2"><Wallet className="size-4 text-signal" />{getSalary(job)}</span>
+        <span className="inline-flex items-center gap-2"><Users className="size-4 text-signal" />{job.vacancies || 1} vacancies</span>
+      </div>
+      <div className="mt-5 flex flex-wrap gap-2">
+        {skills.slice(0, 4).map((skill) => <span key={skill} className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">{skill}</span>)}
+      </div>
+      <div className="mt-auto flex gap-2 pt-6">
+        <Link className="flex-1" to={`/jobs/${id}`}><Button className="w-full" variant="signal">Apply</Button></Link>
+        <Link className="flex-1" to={`/jobs/${id}`}><Button className="w-full" variant="outline">View</Button></Link>
+      </div>
+    </article>
+  );
+}
+
+function LiveRoomCard({ room }) {
+  const id = getRoomId(room);
+  const amenities = room.amenities || room.tags || [room.roomType].filter(Boolean);
+
+  return (
+    <article className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link to={`/rooms/${id}`} className="font-display text-lg font-semibold leading-tight hover:text-signal">{room.title || room.propertyName || "Verified room"}</Link>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+            {room.ownerVerified || room.verificationStatus === "verified" ? "Owner verified" : "Owner check pending"}
+            {room.ownerVerified || room.verificationStatus === "verified" ? <BadgeCheck className="size-4 text-verified" /> : null}
+          </p>
+        </div>
+        <StatusPill status={room.status || "live"} />
+      </div>
+      <div className="mt-5 grid gap-2 text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-2"><MapPin className="size-4 text-signal" />{room.location || room.address || "Location not specified"}</span>
+        <span className="inline-flex items-center gap-2"><Wallet className="size-4 text-signal" />{room.rent || "Rent not disclosed"}</span>
+        <span className="inline-flex items-center gap-2"><CheckCircle2 className="size-4 text-verified" />Moderated listing</span>
+      </div>
+      <div className="mt-5 flex flex-wrap gap-2">
+        {amenities.slice(0, 4).map((amenity) => <span key={amenity} className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">{amenity}</span>)}
+      </div>
+      <div className="mt-auto flex gap-2 pt-6">
+        <Link className="flex-1" to={`/rooms/${id}`}><Button className="w-full" variant="signal">Book Visit</Button></Link>
+        <Link className="flex-1" to={`/rooms/${id}`}><Button className="w-full" variant="outline">View</Button></Link>
+      </div>
+    </article>
+  );
+}
+
+function EmptyState({ text }) {
+  return (
+    <div className="mt-8 rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground">
+      {text}
+    </div>
   );
 }

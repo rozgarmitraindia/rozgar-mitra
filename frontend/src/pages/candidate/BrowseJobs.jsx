@@ -1,16 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { BadgeCheck, Briefcase, MapPin, Search, SlidersHorizontal, Users, Wallet } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { getSession } from "../../utils/auth.js";
 import { fetchJobs, toggleJobSaved } from "./candidateApi.js";
+import { Button } from "../../components/ui/button.jsx";
+import { Input } from "../../components/ui/input.jsx";
+import { StatusPill } from "../../components/primitives/StatusPill.jsx";
+import { cn } from "../../lib/utils.js";
+
+const categories = ["All", "Technology", "Sales", "Manufacturing", "Logistics", "Healthcare", "Hospitality"];
+
+function getId(job) {
+  return job._id || job.id;
+}
+
+function getSalary(job) {
+  return job.salary || [job.salaryMin, job.salaryMax].filter(Boolean).join(" - ") || "Salary not disclosed";
+}
 
 export default function BrowseJobs() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [q, setQ] = useState("");
-  const [city, setCity] = useState("All Cities");
-  const [category, setCategory] = useState("All Categories");
+  const [category, setCategory] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const { lang } = useLanguage();
@@ -42,27 +56,23 @@ export default function BrowseJobs() {
   }, []);
 
   const filtered = useMemo(() => jobs.filter((job) => {
-    const qmatch = q.trim() === "" || `${job.title} ${job.companyName || job.company || ""} ${(job.skills || job.tags || []).join(" ")}`.toLowerCase().includes(q.toLowerCase());
-    const cmatch = city === "All Cities" || (job.location || job.address || "").toLowerCase().includes(city.toLowerCase());
-    const catmatch = category === "All Categories" || (job.role || "").toLowerCase().includes(category.toLowerCase());
-    return qmatch && cmatch && catmatch;
-  }), [jobs, q, city, category]);
+    const text = `${job.title} ${job.companyName || job.company || ""} ${job.location || job.address || ""} ${(job.skills || job.tags || []).join(" ")} ${job.role || ""}`.toLowerCase();
+    const qmatch = q.trim() === "" || text.includes(q.toLowerCase());
+    const catmatch = category === "All" || text.includes(category.toLowerCase());
+    return qmatch && catmatch;
+  }), [jobs, q, category]);
 
   async function handleSave(job) {
     const session = getSession();
     if (!session) {
-      navigate("/login", { state: { from: `/jobs/${job._id || job.id}`, role: "candidate", error: "Save karne ke liye login required hai." } });
+      navigate("/login", { state: { from: `/jobs/${getId(job)}`, role: "candidate", error: "Save karne ke liye login required hai." } });
       return;
     }
     try {
-      const result = await toggleJobSaved(job._id || job.id);
+      const result = await toggleJobSaved(getId(job));
       setJobs((items) => items.map((item) => {
-        if (String(item._id || item.id) !== String(job._id || job.id)) return item;
-        return {
-          ...item,
-          isSaved: !item.isSaved,
-          savedCount: result.data?.savedCount ?? item.savedCount,
-        };
+        if (String(getId(item)) !== String(getId(job))) return item;
+        return { ...item, isSaved: !item.isSaved, savedCount: result.data?.savedCount ?? item.savedCount };
       }));
       toast.show(result.message, "success");
     } catch (err) {
@@ -71,50 +81,89 @@ export default function BrowseJobs() {
   }
 
   return (
-    <section className="section">
-      <div className="section-header">
-        <div className="section-label">Browse Jobs</div>
-        <h1 className="section-title">{lang === "en" ? "Find Work" : "नौकरी खोजें"}</h1>
-        <p className="section-desc">{lang === "en" ? "Search, filter, save and apply after login." : "खोजें, फ़िल्टर करें, सेव और आवेदन करने के लिए लॉगिन करें।"}</p>
-      </div>
-      <div className="search-box" style={{ margin: "0 auto 28px" }}>
-        <input placeholder="Job title, skill, company" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select value={city} onChange={(e) => setCity(e.target.value)}>
-          <option>All Cities</option>
-          <option>Lucknow</option>
-          <option>Delhi</option>
-        </select>
-        <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option>All Categories</option>
-          <option>House Maid</option>
-          <option>Driver</option>
-        </select>
-        <button className="btn-search" type="button">Search</button>
-      </div>
-      {error ? <div className="login-error">{error}</div> : null}
-      {loading ? (
-        <div className="section"><p className="section-desc">Loading jobs…</p></div>
-      ) : (
-        <div className="jobs-grid">
-          {filtered.length ? filtered.map((job) => (
-            <article className="job-card animated-card" key={job._id || job.id}>
-              <Link to={`/jobs/${job._id || job.id}`} className="job-card-header">
-                <div className="job-icon">{job.icon || "💼"}</div>
-                <div><h3 className="job-title">{job.title}</h3><div className="job-company">{job.companyName || job.company} • {job.location || job.address}</div></div>
-              </Link>
-              <div className="job-tags">{(job.skills || job.tags || []).map((tag) => <span className="job-tag" key={tag}>{tag}</span>)}</div>
-              {job.applicationEndDate ? <p className="job-deadline">Apply by {new Date(job.applicationEndDate).toLocaleDateString()}</p> : null}
-              <div className="job-footer">
-                <span className="job-salary">{job.salary || "—"}</span>
-                <button className="btn-wa" type="button" onClick={() => handleSave(job)}>{job.isSaved ? "Saved" : `♡ ${lang === "en" ? "Save" : "सेव"}`}</button>
-                <Link to={`/jobs/${job._id || job.id}`} className="btn-search">{lang === "en" ? "View" : "देखें"}</Link>
-              </div>
-            </article>
-          )) : (
-            <div className="section"><p className="section-desc">No jobs found. Try a different search.</p></div>
-          )}
+    <>
+      <section className="mesh-bg border-b border-border">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+          <h1 className="font-display text-4xl font-bold">Find verified jobs</h1>
+          <p className="mt-2 text-muted-foreground">
+            {lang === "en" ? "Search, filter, save and apply after login." : "Naukri browse karo, save/apply ke liye login karo."}
+          </p>
+          <div className="mt-8 grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-2xl border border-border bg-card p-2 shadow-float">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input className="h-11 rounded-xl border-transparent bg-muted pl-9" placeholder="Search job, city, skill, or company" value={q} onChange={(event) => setQ(event.target.value)} />
+            </div>
+            <Button variant="signal" size="lg"><SlidersHorizontal className="size-4" />Sort / Filter</Button>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {categories.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setCategory(item)}
+                className={cn(
+                  "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition",
+                  category === item ? "border-signal bg-signal/15 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
-    </section>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        {error ? <div className="mb-6 rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm font-semibold text-destructive">{error}</div> : null}
+        <p className="text-sm text-muted-foreground"><strong className="text-foreground">{filtered.length}</strong> results found</p>
+        {loading ? (
+          <div className="mt-6 rounded-2xl border border-border bg-card p-10 text-muted-foreground shadow-float">Loading jobs...</div>
+        ) : filtered.length ? (
+          <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((job) => <JobBrowseCard key={getId(job)} job={job} onSave={() => handleSave(job)} />)}
+          </div>
+        ) : (
+          <div className="mt-6 rounded-2xl border border-dashed border-border p-16 text-center">
+            <h2 className="text-lg font-semibold">No jobs match this filter</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Try another category or clear your search phrase.</p>
+            <Button className="mt-6" variant="outline" onClick={() => { setCategory("All"); setQ(""); }}>Clear filters</Button>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function JobBrowseCard({ job, onSave }) {
+  const id = getId(job);
+  const skills = job.skills || job.tags || [job.role].filter(Boolean);
+
+  return (
+    <article className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link to={`/jobs/${id}`} className="font-display text-lg font-semibold leading-tight hover:text-signal">{job.title}</Link>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+            {job.companyName || job.company || "Employer"}
+            {job.companyVerified || job.verificationStatus === "verified" ? <BadgeCheck className="size-4 text-verified" /> : null}
+          </p>
+        </div>
+        <StatusPill status={job.status || "live"} />
+      </div>
+      <div className="mt-5 grid gap-2 text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-2"><MapPin className="size-4 text-signal" />{job.location || job.address || "Location not specified"}</span>
+        <span className="inline-flex items-center gap-2"><Wallet className="size-4 text-signal" />{getSalary(job)}</span>
+        <span className="inline-flex items-center gap-2"><Users className="size-4 text-signal" />{job.vacancies || 1} vacancies</span>
+        <span className="inline-flex items-center gap-2"><Briefcase className="size-4 text-signal" />{job.employmentType || job.role || "Job role"}</span>
+      </div>
+      <div className="mt-5 flex flex-wrap gap-2">
+        {skills.slice(0, 4).map((skill) => <span key={skill} className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">{skill}</span>)}
+      </div>
+      {job.applicationEndDate ? <p className="mt-4 text-xs font-semibold text-muted-foreground">Apply by {new Date(job.applicationEndDate).toLocaleDateString()}</p> : null}
+      <div className="mt-auto flex gap-2 pt-6">
+        <Button className="flex-1" variant="outline" onClick={onSave}>{job.isSaved ? "Saved" : "Save"}</Button>
+        <Link className="flex-1" to={`/jobs/${id}`}><Button className="w-full" variant="signal">View</Button></Link>
+      </div>
+    </article>
   );
 }

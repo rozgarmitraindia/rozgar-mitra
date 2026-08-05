@@ -1,39 +1,65 @@
 import { Link } from "react-router-dom";
 
+const platformLinks = [
+  ["Jobs", "/jobs"],
+  ["Rooms", "/rooms"],
+  ["Dashboard", "/dashboard"],
+  ["Admin", "/admin"],
+];
+
+const trustItems = [
+  "Human moderation desk",
+  "OTP + document verification",
+  "Rejection always with a reason",
+  "Complaints answered in 48h",
+];
+
+function BrandMark() {
+  return (
+    <Link to="/" className="inline-flex items-center gap-3">
+      <span data-no-translate className="grid size-9 place-items-center rounded-xl bg-gradient-ink text-sm font-bold text-background">रो</span>
+      <span>
+        <span className="block font-display text-[15px] font-bold tracking-tight">ROZGAR MITRA</span>
+        <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Jobs · Rooms · Growth</span>
+      </span>
+    </Link>
+  );
+}
+
 export default function Footer() {
   return (
-    <footer className="footer">
-      <div className="footer-top">
-        <div className="footer-brand">
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div className="tricolor"><div className="tc-orange" /><div className="tc-white" /><div className="tc-green" /></div>
-            <span style={{ fontFamily: "'Baloo 2', sans-serif", fontSize: 18, fontWeight: 800, color: "rgba(255,255,255,0.9)" }}>रोज़गार मित्र</span>
+    <footer className="border-t border-border bg-surface text-foreground">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
+        <div>
+          <BrandMark />
+          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
+            Rozgar Mitra connects India’s workers with verified jobs, practical rooms, and transparent growth workflows.
+          </p>
+        </div>
+        <div>
+          <h3 className="font-display text-sm font-semibold">Platform</h3>
+          <div className="mt-4 grid gap-3">
+            {platformLinks.map(([label, href]) => (
+              <Link key={label} to={href} className="text-sm text-muted-foreground transition hover:text-foreground">
+                {label}
+              </Link>
+            ))}
           </div>
-          <p className="footer-tagline">India's trusted local jobs and rooms platform - connecting workers, employers and room owners.</p>
         </div>
-
-        <div className="footer-links">
-          <h4>Workers / कामगार</h4>
-          <Link to="/join-free">Register Free</Link>
-          <Link to="/jobs">Browse Jobs</Link>
-          <Link to="/rooms">Browse Rooms</Link>
-        </div>
-
-        <div className="footer-links">
-          <h4>Employers / नियोक्ता</h4>
-          <Link to="/post-job">Post a Job</Link>
-          <Link to="/signup">Company Register</Link>
-          <Link to="/login">Dashboard Login</Link>
-        </div>
-
-        <div className="footer-links">
-          <h4>Room Owners / रूम ओनर</h4>
-          <Link to="/post-room">Post Room</Link>
-          <Link to="/signup">Owner Register</Link>
-          <Link to="/contact">Support</Link>
+        <div>
+          <h3 className="font-display text-sm font-semibold">Trust</h3>
+          <ul className="mt-4 grid gap-3 text-sm text-muted-foreground">
+            {trustItems.map((item) => <li key={item}>{item}</li>)}
+          </ul>
         </div>
       </div>
-      <div>© 2026 Rozgar Mitra - Made for India | All rights reserved</div>
+      <div className="border-t border-border">
+        <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-2 px-4 py-5 text-xs text-muted-foreground sm:px-6">
+          <span>© 2026 Rozgar Mitra</span>
+          <span>Start simple. Launch fast. Grow big.</span>
+          <span>Powered By Origin Software</span>
+        </div>
+      </div>
     </footer>
   );
 }
