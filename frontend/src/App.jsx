@@ -12,6 +12,7 @@ const PostRoom = lazy(() => import("./pages/roomOwner/PostRoom.jsx"));
 const EmployerDashboard = lazy(() => import("./pages/employer/Dashboard.jsx"));
 const EmployerJobs = lazy(() => import("./pages/employer/Jobs.jsx"));
 const EmployerApplications = lazy(() => import("./pages/employer/Applications.jsx"));
+const EmployerNotifications = lazy(() => import("./pages/employer/Notifications.jsx"));
 const EmployerProfile = lazy(() => import("./pages/employer/Profile.jsx"));
 const EmployerSettings = lazy(() => import("./pages/employer/Settings.jsx"));
 const RoomOwnerDashboard = lazy(() => import("./pages/roomOwner/Dashboard.jsx"));
@@ -92,6 +93,7 @@ export default function App() {
                   <Route path="/employer/dashboard" element={protectedRoleLayout("employer", <EmployerDashboard />)} />
                   <Route path="/employer/jobs" element={protectedRoleLayout("employer", <EmployerJobs />)} />
                   <Route path="/employer/applications" element={protectedRoleLayout("employer", <EmployerApplications />)} />
+                  <Route path="/employer/notifications" element={protectedRoleLayout("employer", <EmployerNotifications />)} />
                   <Route path="/employer/profile" element={protectedRoleLayout("employer", <EmployerProfile />)} />
                   <Route path="/employer/settings" element={protectedRoleLayout("employer", <EmployerSettings />)} />
                   <Route path="/room-owner/dashboard" element={protectedRoleLayout("roomOwner", <RoomOwnerDashboard />)} />

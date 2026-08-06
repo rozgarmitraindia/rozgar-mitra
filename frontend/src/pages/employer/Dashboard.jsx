@@ -4,9 +4,11 @@ import { Briefcase, CalendarCheck, FileWarning, Users } from "lucide-react";
 import { getSession } from "../../utils/auth.js";
 import { fetchEmployerSummary } from "./employerApi.js";
 import { Button } from "../../components/ui/button.jsx";
+import { useLanguage } from "../../contexts/LanguageContext.jsx";
 
 export default function EmployerDashboard() {
   const session = getSession();
+  const { lang } = useLanguage();
   const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -46,6 +48,9 @@ export default function EmployerDashboard() {
     ];
   }, [summary]);
 
+  const companyName = session?.user?.companyName || session?.companyName || "Employer";
+  const greeting = lang === "hi" ? `स्वागत है, ${companyName}` : `Welcome, ${companyName}`;
+
   return (
     <section className="bg-background">
       <div className="mesh-bg border-b border-border">
@@ -53,7 +58,7 @@ export default function EmployerDashboard() {
           <div className="inline-flex rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Employer command center</div>
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="font-display text-4xl font-bold">Welcome, {session?.user?.companyName || session?.companyName || "Employer"}</h1>
+              <h1 className="font-display text-4xl font-bold" data-no-translate translate="no">{greeting}</h1>
               <p className="mt-2 text-muted-foreground">Post jobs, monitor approval, manage candidates and run interviews from one hiring workspace.</p>
             </div>
             <Link to="/post-job"><Button variant="signal" size="lg">Post a job</Button></Link>

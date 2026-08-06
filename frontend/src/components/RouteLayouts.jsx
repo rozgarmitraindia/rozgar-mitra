@@ -15,12 +15,13 @@ const roleSidebars = {
     { label: "Settings", path: "/settings" },
   ],
   employer: [
-    { label: "Dashboard", path: "/employer/dashboard", icon: "◫" },
-    { label: "Post Job", path: "/post-job", icon: "+" },
-    { label: "My Jobs", path: "/employer/jobs", icon: "□" },
-    { label: "Applications", path: "/employer/applications", icon: "≡" },
-    { label: "Profile", path: "/employer/profile", icon: "◎" },
-    { label: "Settings", path: "/employer/settings", icon: "⚙" },
+    { label: "Dashboard", path: "/employer/dashboard" },
+    { label: "Post Job", path: "/post-job" },
+    { label: "My Jobs", path: "/employer/jobs" },
+    { label: "Applications", path: "/employer/applications" },
+    { label: "Notifications", path: "/employer/notifications" },
+    { label: "Profile", path: "/employer/profile" },
+    { label: "Settings", path: "/employer/settings" },
   ],
   roomOwner: [
     { label: "Dashboard", path: "/room-owner/dashboard" },
@@ -126,7 +127,7 @@ export function RoleLayout({ role, children }) {
         <aside className={`role-sidebar ${sidebarOpen ? "open" : ""}`}>
           {isEmployer ? (
             <>
-              <div className="nav-logo employer-logo">
+              <div className="nav-logo employer-logo" data-no-translate translate="no">
                 <span className="logo-icon">RM</span>
                 <div><span className="logo-hindi">Employer</span><span className="logo-en">Hiring Center</span></div>
               </div>
@@ -137,6 +138,7 @@ export function RoleLayout({ role, children }) {
               <div className="sidebar-heading">Workspace</div>
             </>
           ) : <div className="role-sidebar-title">{currentRoleName}</div>}
+
           {menuItems.map((item) => (
             <NavLink
               key={item.path}
@@ -144,7 +146,6 @@ export function RoleLayout({ role, children }) {
               className={({ isActive }) => `role-nav-link ${isActive ? "active" : ""}`}
               onClick={() => setSidebarOpen(false)}
             >
-              {isEmployer && <span className="nav-icon">{item.icon}</span>}
               {item.label}
             </NavLink>
           ))}

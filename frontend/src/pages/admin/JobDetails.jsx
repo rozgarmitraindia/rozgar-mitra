@@ -1,9 +1,10 @@
 export default function JobDetails() {
   return (
-    <section className="form-card">
+    <section className="form-card admin-empty-page">
+      <div className="admin-empty-icon">JB</div>
       <div className="section-label">Job Details</div>
-      <h1 className="form-title">Job Review</h1>
-      <p className="section-desc">Open a pending job from Jobs Verification to review posting metadata and approve or reject.</p>
+      <h1 className="form-title">Job Review Console</h1>
+      <p className="section-desc">Open a job from Jobs Verification to inspect deadline, employer details, requirements, rejection reason and publish controls.</p>
     </section>
   );
 }

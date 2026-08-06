@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 import { adminFetch, moduleTitles, modules, pickName, pickEmail, pickMeta, statusOptions } from "./adminApi.js";
 import DetailPanel from "./DetailPanel.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
@@ -118,28 +119,72 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
     }
   }
 
+  async function deleteAccount(target = selected) {
+    if (!target?._id || !["candidates", "employers", "room-owners"].includes(moduleKey)) return;
+    const label = pickName(target, moduleKey);
+    const reason = window.prompt(`Permanent account delete reason required for "${label}"`);
+    if (!String(reason || "").trim()) {
+      toast.show("Delete reason is compulsory", "error");
+      return;
+    }
+    if (!window.confirm(`Permanently delete "${label}" account? Related records may also be removed.`)) return;
+
+    setDeleting(true);
+    setError("");
+    try {
+      const result = await adminFetch(`/admin/${moduleKey}/${target._id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason }),
+      });
+      setSelected(null);
+      setActivity([]);
+      await load(1);
+      toast.show(result.message || "Account permanently deleted", "success");
+    } catch (err) {
+      setError(err.message);
+      toast.show(err.message || "Unable to delete account", "error");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   useEffect(() => {
     load(pagination.page);
   }, [moduleKey, status, refreshToken]);
 
   return (
-    <div className="admin-content-grid">
-      <section className="form-card">
+    <div className={`admin-content-grid ${selected ? "has-detail" : "is-list-only"}`}>
+      <section className="form-card admin-module-card">
         <div className="admin-list-head">
           <div>
-            <div className="section-label">{moduleTitles[moduleKey]}</div>
+            <div className="section-label">Admin Review Desk</div>
             <h1 className="form-title">{moduleTitles[moduleKey]}</h1>
+            <p className="section-desc">{moduleConfig?.description || "Review records, documents, status changes and activity in one place."}</p>
           </div>
-          <button className="btn-search" type="button" onClick={() => load(1)}>Refresh</button>
+          <button className="btn-search admin-icon-button" type="button" onClick={() => load(1)} disabled={loading}>
+            <RefreshCw size={16} className={loading ? "admin-spin" : ""} />
+            {loading ? "Refreshing" : "Refresh"}
+          </button>
+        </div>
+        <div className="admin-metric-strip">
+          <div><span>Total</span><strong>{pagination.total || items.length}</strong></div>
+          <div><span>Showing</span><strong>{items.length}</strong></div>
+          <div><span>Filter</span><strong>{status || "All"}</strong></div>
         </div>
         {error ? <div className="login-error">{error}</div> : null}
         <div className="admin-toolbar">
-          <input className="form-input" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Enter" && load(1)} placeholder="Search by name, email, ID, title..." />
-          <select className="form-select" value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">All Status</option>
-            {(statusOptions[moduleKey] || []).map((item) => <option value={item} key={item}>{item}</option>)}
-          </select>
-          <button className="btn-secondary" type="button" onClick={() => load(1)}>Search</button>
+          <label className="admin-search-field">
+            <Search size={16} />
+            <input className="form-input" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Enter" && load(1)} placeholder="Search by name, email, ID, title..." />
+          </label>
+          <label className="admin-select-field">
+            <SlidersHorizontal size={16} />
+            <select className="form-select" value={status} onChange={(event) => setStatus(event.target.value)}>
+              <option value="">All Status</option>
+              {(statusOptions[moduleKey] || []).map((item) => <option value={item} key={item}>{item}</option>)}
+            </select>
+          </label>
+          <button className="btn-secondary admin-icon-button" type="button" onClick={() => load(1)}><Search size={15} />Search</button>
         </div>
         <div className="admin-table-wrap">
           <table className="admin-table">
@@ -155,8 +200,11 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item._id} onClick={() => openDetails(item)}>
+              {loading ? (
+                <tr><td colSpan={moduleKey === "jobs" ? 7 : 6}><div className="admin-table-state"><span className="loading-spinner" />Loading records...</div></td></tr>
+              ) : null}
+              {!loading && items.map((item) => (
+                <tr key={item._id} className={selected?._id === item._id ? "active" : ""} onClick={() => openDetails(item)}>
                   <td>{item.immutableId || item.postId || item.roomId || item._id?.slice(-8)}</td>
                   <td>{pickName(item, moduleKey)}</td>
                   <td>{pickEmail(item, moduleKey)}</td>
@@ -174,7 +222,7 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
                   ) : null}
                 </tr>
               ))}
-              {!items.length && !loading ? <tr><td colSpan={moduleKey === "jobs" ? 7 : 6}>No records found.</td></tr> : null}
+              {!items.length && !loading ? <tr><td colSpan={moduleKey === "jobs" ? 7 : 6}><div className="admin-table-state"><strong>No records found</strong><span>Try a different status filter or search keyword.</span></div></td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -184,7 +232,7 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
           <button className="btn-secondary" type="button" disabled={pagination.page >= pagination.pages} onClick={() => load(pagination.page + 1)}>Next</button>
         </div>
       </section>
-      <DetailPanel moduleKey={moduleKey} detail={selected} activity={activity} onClose={() => setSelected(null)} onStatus={updateStatus} statusLoading={updatingStatus} onDelete={() => deleteJob()} deleteLoading={deleting} />
+      <DetailPanel moduleKey={moduleKey} detail={selected} activity={activity} onClose={() => setSelected(null)} onStatus={updateStatus} statusLoading={updatingStatus} onDelete={() => deleteJob()} onDeleteAccount={() => deleteAccount()} deleteLoading={deleting} />
     </div>
   );
 }

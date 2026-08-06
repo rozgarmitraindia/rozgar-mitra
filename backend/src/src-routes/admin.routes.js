@@ -141,6 +141,28 @@ const notificationSchema = z.object({
   query: z.object({}).optional(),
 });
 
+const reasonSchema = z.object({
+  body: z.object({
+    reason: z.string().trim().min(1, "Reason is compulsory"),
+  }).passthrough(),
+  params: z.object({
+    type: z.string().optional(),
+    id: z.string(),
+  }).passthrough(),
+  query: z.object({}).optional(),
+});
+
+const listingEditSchema = z.object({
+  body: z.object({
+    reason: z.string().trim().min(1, "Edit reason is compulsory"),
+  }).passthrough(),
+  params: z.object({
+    type: z.enum(["jobs", "rooms"]),
+    id: z.string(),
+  }),
+  query: z.object({}).optional(),
+});
+
 const adminCreateSchema = z.object({
   body: z.object({
     fullName: z.string().trim().min(3),
@@ -252,6 +274,32 @@ async function notifyStatusChange(type, item, status, reason) {
   }
 }
 
+async function safeNotification(payload) {
+  try {
+    await createNotification(payload);
+  } catch (error) {
+    console.error("Admin notification failed", { title: payload.title, error: error.message });
+  }
+}
+
+async function notifyListingOwner(type, item, action, reason) {
+  const ownerId = type === "jobs" ? item.employer : item.owner;
+  const owner = await User.findById(ownerId);
+  if (!owner) return;
+  const noun = type === "jobs" ? "Job" : "Room";
+  const title = `${noun} ${action} by admin`;
+  const name = item.title || item.companyName || item.propertyName || `your ${noun.toLowerCase()}`;
+  await safeNotification({
+    recipient: owner._id,
+    title,
+    body: `${name} has been ${action} by admin. Reason: ${reason}`,
+    channel: "inApp",
+    sendEmail: true,
+    sendPush: true,
+    metadata: { type: `${type.slice(0, -1)}_${action}`, id: String(item._id), reason },
+  });
+}
+
 function normalizeStatus(type, status) {
   if (type === "jobs" || type === "rooms") {
     if (status === "live" || status === "verified" || status === "approved" || status === "approve") return "live";
@@ -266,6 +314,19 @@ function titleFor(item, type) {
   if (type === "employers") return item.companyName || item.email || item.immutableId;
   if (type === "room-owners") return item.propertyName || item.email || item.immutableId;
   return item.title || item.subject || item._id;
+}
+
+function normalizeListingEditValue(key, value) {
+  if (value === "") return undefined;
+  if (["skills", "amenities", "photos"].includes(key)) {
+    if (Array.isArray(value)) return value;
+    return String(value).split(",").map((item) => item.trim()).filter(Boolean);
+  }
+  if (key === "vacancies") return Math.max(Number(value || 1), 1);
+  if (["applicationStartDate", "applicationEndDate", "interviewStartDate", "interviewEndDate"].includes(key)) {
+    return value ? new Date(value) : undefined;
+  }
+  return value;
 }
 
 adminRouter.get("/meta/modules", (_req, res) => {
@@ -405,18 +466,7 @@ adminRouter.delete("/jobs/:id", asyncHandler(async (req, res) => {
   if (!job) return sendError(res, { statusCode: 404, code: "JOB_NOT_FOUND", message: "Job not found" });
 
   const applicationCount = await Application.countDocuments({ job: job._id });
-  const employer = await User.findById(job.employer);
-  if (employer) {
-    await createNotification({
-      recipient: employer._id,
-      title: "Job deleted by admin",
-      body: `${job.title || "Your job"} has been deleted by admin. Reason: ${reason}`,
-      channel: "inApp",
-      sendEmail: true,
-      sendPush: true,
-      metadata: { type: "job_deleted", jobId: String(job._id), reason },
-    });
-  }
+  await notifyListingOwner("jobs", job, "deleted", reason);
   await createActivity(req, {
     action: "job.delete",
     module: "jobs",
@@ -435,6 +485,133 @@ adminRouter.delete("/jobs/:id", asyncHandler(async (req, res) => {
     message: "Job permanently deleted and removed from public listings",
     data: { id: String(job._id), deletedApplications: applicationCount },
   });
+}));
+
+adminRouter.delete("/rooms/:id", asyncHandler(async (req, res) => {
+  const reason = String(req.body?.reason || "").trim();
+  if (!reason) return sendError(res, { statusCode: 400, code: "REASON_REQUIRED", message: "Delete reason is compulsory" });
+  const room = await Room.findById(req.params.id);
+  if (!room) return sendError(res, { statusCode: 404, code: "ROOM_NOT_FOUND", message: "Room not found" });
+
+  const bookingCount = await Booking.countDocuments({ room: room._id });
+  await notifyListingOwner("rooms", room, "deleted", reason);
+  await createActivity(req, {
+    action: "room.delete",
+    module: "rooms",
+    entity: room,
+    status: "deleted",
+    reason,
+    metadata: { title: room.title, roomId: room.roomId, previousStatus: room.status, bookingCount },
+  });
+  await Promise.all([
+    Booking.deleteMany({ room: room._id }),
+    User.updateMany({ savedRooms: room._id }, { $pull: { savedRooms: room._id } }),
+    Room.deleteOne({ _id: room._id }),
+  ]);
+
+  return sendSuccess(res, {
+    message: "Room permanently deleted and removed from public listings",
+    data: { id: String(room._id), deletedBookings: bookingCount },
+  });
+}));
+
+adminRouter.patch("/:type/:id", validate(listingEditSchema), asyncHandler(async (req, res) => {
+  const { type, id } = req.validated.params;
+  const { reason, ...body } = req.validated.body;
+  const config = getModule(type);
+  if (!config || !["jobs", "rooms"].includes(type)) {
+    return sendError(res, { statusCode: 404, code: "UNKNOWN_ADMIN_SECTION", message: "Unknown admin section" });
+  }
+
+  const item = await config.model.findById(id);
+  if (!item) return sendError(res, { statusCode: 404, code: "NOT_FOUND", message: "Not found" });
+
+  const allowed = type === "jobs"
+    ? ["title", "role", "genderNeeded", "vacancies", "employmentType", "ageRange", "skills", "salary", "requirements", "googleMapLink", "address", "contactNumber", "description", "benefits", "applicationStartDate", "applicationEndDate", "interviewStartDate", "interviewEndDate", "interviewStartTime", "interviewEndTime", "interviewMode", "interviewDetails"]
+    : ["propertyName", "title", "rent", "deposit", "amenities", "roomType", "photos", "googleMapLink", "address", "contactNumber", "description"];
+
+  for (const key of allowed) {
+    if (body[key] !== undefined) {
+      const normalized = normalizeListingEditValue(key, body[key]);
+      if (normalized !== undefined) item[key] = normalized;
+    }
+  }
+  await item.save();
+  await notifyListingOwner(type, item, "edited", reason);
+  await createActivity(req, {
+    action: `${type.slice(0, -1)}.edit`,
+    module: type,
+    entity: item,
+    status: item.status,
+    reason,
+    metadata: { title: titleFor(item, type), editedFields: Object.keys(body).filter((key) => allowed.includes(key)) },
+  });
+
+  return sendSuccess(res, { message: `${config.label} updated`, data: { item: shapeItem(item) } });
+}));
+
+adminRouter.delete("/:type/:id", validate(reasonSchema), asyncHandler(async (req, res) => {
+  const { type, id } = req.validated.params;
+  const { reason } = req.validated.body;
+  if (!["candidates", "employers", "room-owners"].includes(type)) {
+    return sendError(res, { statusCode: 404, code: "UNKNOWN_ADMIN_SECTION", message: "Unknown admin section" });
+  }
+  const config = getModule(type);
+  const user = await User.findOne({ _id: id, ...config.filter });
+  if (!user) return sendError(res, { statusCode: 404, code: "NOT_FOUND", message: "Account not found" });
+  if (["admin", "superAdmin"].includes(user.role)) {
+    return sendError(res, { statusCode: 403, code: "ADMIN_DELETE_FORBIDDEN", message: "Admin accounts cannot be deleted here" });
+  }
+
+  await safeNotification({
+    recipient: user._id,
+    title: "Account deleted by admin",
+    body: `Your Rozgar Mitra account has been permanently deleted. Reason: ${reason}`,
+    channel: "inApp",
+    sendEmail: true,
+    sendPush: true,
+    metadata: { type: "account_deleted", reason },
+  });
+
+  const metadata = { email: user.email, role: user.role, immutableId: user.immutableId };
+  if (user.role === "candidate") {
+    await Promise.all([
+      Application.deleteMany({ candidate: user._id }),
+      Booking.deleteMany({ user: user._id }),
+    ]);
+  }
+  if (user.role === "employer") {
+    const jobs = await Job.find({ employer: user._id }).select("_id").lean();
+    const jobIds = jobs.map((job) => job._id);
+    await Promise.all([
+      Application.deleteMany({ employer: user._id }),
+      Job.deleteMany({ employer: user._id }),
+      User.updateMany({ savedJobs: { $in: jobIds } }, { $pull: { savedJobs: { $in: jobIds } } }),
+    ]);
+    metadata.deletedJobs = jobIds.length;
+  }
+  if (user.role === "roomOwner") {
+    const rooms = await Room.find({ owner: user._id }).select("_id").lean();
+    const roomIds = rooms.map((room) => room._id);
+    await Promise.all([
+      Booking.deleteMany({ owner: user._id }),
+      Room.deleteMany({ owner: user._id }),
+      User.updateMany({ savedRooms: { $in: roomIds } }, { $pull: { savedRooms: { $in: roomIds } } }),
+    ]);
+    metadata.deletedRooms = roomIds.length;
+  }
+
+  await createActivity(req, {
+    action: "account.delete",
+    module: type,
+    entity: user,
+    status: "deleted",
+    reason,
+    metadata,
+  });
+  await User.deleteOne({ _id: user._id });
+
+  return sendSuccess(res, { message: "Account permanently deleted", data: { id: String(user._id), metadata } });
 }));
 
 adminRouter.get("/:type", asyncHandler(async (req, res) => {

@@ -45,6 +45,19 @@ usersRouter.get("/summary", requireAuth, requireRole("candidate"), async (req, r
 usersRouter.patch("/profile", requireAuth, async (req, res) => {
   const { fullName, email, mobile } = req.body || {};
   const updates = {};
+  const editableTextFields = [
+    "address",
+    "pincode",
+    "about",
+    "companyName",
+    "companyEmail",
+    "companyPhone",
+    "whatsapp",
+    "alternateNumber",
+    "companyLocation",
+    "propertyName",
+    "googleMapLink",
+  ];
 
   if (fullName) updates.fullName = fullName;
   if (email) {
@@ -73,6 +86,28 @@ usersRouter.patch("/profile", requireAuth, async (req, res) => {
       return sendError(res, { statusCode: 409, code: "MOBILE_IN_USE", message: "Mobile number is already used by another account." });
     }
     updates.mobile = trimmedMobile;
+  }
+
+  for (const field of editableTextFields) {
+    if (req.body[field] === undefined) continue;
+    const value = String(req.body[field] || "").trim();
+    updates[field] = value;
+  }
+
+  if (updates.companyEmail) {
+    const normalizedCompanyEmail = updates.companyEmail.toLowerCase().trim();
+    const existingCompanyEmail = await User.findOne({ companyEmail: normalizedCompanyEmail, _id: { $ne: req.user._id } });
+    if (existingCompanyEmail) {
+      return sendError(res, { statusCode: 409, code: "COMPANY_EMAIL_IN_USE", message: "Company email is already used by another account." });
+    }
+    updates.companyEmail = normalizedCompanyEmail;
+  }
+
+  if (updates.companyPhone) {
+    const existingCompanyPhone = await User.findOne({ companyPhone: updates.companyPhone, _id: { $ne: req.user._id } });
+    if (existingCompanyPhone) {
+      return sendError(res, { statusCode: 409, code: "COMPANY_PHONE_IN_USE", message: "Company phone is already used by another account." });
+    }
   }
 
   if (Object.keys(updates).length === 0) {

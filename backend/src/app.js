@@ -71,6 +71,21 @@ app.use("/api/user", usersRouter);
 app.use((req, res) => sendError(res, { statusCode: 404, code: "NOT_FOUND", message: "Route not found" }));
 app.use((err, _req, res, _next) => {
   console.error(err);
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyPattern || err.keyValue || {})[0] || "field";
+    return sendError(res, {
+      statusCode: 409,
+      code: "DUPLICATE_FIELD",
+      message: `Account already exists with this ${field}.`,
+    });
+  }
+  if (err.name === "MulterError") {
+    return sendError(res, {
+      statusCode: 400,
+      code: err.code || "UPLOAD_ERROR",
+      message: err.code === "LIMIT_FILE_SIZE" ? "Each file must be 10MB or smaller." : err.message,
+    });
+  }
   return sendError(res, {
     statusCode: err.statusCode || 500,
     code: err.code || "SERVER_ERROR",

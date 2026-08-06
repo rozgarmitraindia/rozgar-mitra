@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Home,
   Languages,
-  LayoutDashboard,
   LogOut,
   Menu,
   PlusCircle,
@@ -37,6 +36,7 @@ const profileLinks = {
     { label: "Browse Rooms", path: "/rooms" },
     { label: "Saved Jobs", path: "/saved-jobs" },
     { label: "Applied Jobs", path: "/applied-jobs" },
+    { label: "Notifications", path: "/notifications" },
     { label: "Profile", path: "/profile" },
     { label: "Settings", path: "/settings" },
   ],
@@ -45,6 +45,7 @@ const profileLinks = {
     { label: "Post Job", path: "/post-job" },
     { label: "My Jobs", path: "/employer/jobs" },
     { label: "Applications", path: "/employer/applications" },
+    { label: "Notifications", path: "/employer/notifications" },
     { label: "Profile", path: "/employer/profile" },
     { label: "Settings", path: "/employer/settings" },
   ],
@@ -73,8 +74,8 @@ function getRoleLabel(role) {
 
 function BrandMark({ onClick }) {
   return (
-    <NavLink to="/" onClick={onClick} className="inline-flex min-w-0 items-center gap-3">
-      <span data-no-translate className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-ink text-sm font-bold text-background">रो</span>
+    <NavLink to="/" onClick={onClick} className="inline-flex min-w-0 items-center gap-3" data-no-translate translate="no">
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-ink text-sm font-bold text-background">रो</span>
       <span className="min-w-0">
         <span className="block truncate font-display text-[15px] font-bold tracking-tight text-foreground">ROZGAR MITRA</span>
         <span className="block truncate text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Jobs · Rooms · Growth</span>
@@ -131,30 +132,24 @@ export default function Navbar() {
 
   useEffect(() => {
     let cleanup = () => {};
-
     async function loadUnreadCount() {
       if (!loggedIn) {
         setUnreadCount(0);
         return;
       }
-
       try {
-        const count = await fetchUnreadCount();
-        setUnreadCount(count || 0);
+        setUnreadCount((await fetchUnreadCount()) || 0);
       } catch (err) {
         console.error("Unable to load unread notifications", err);
       }
     }
-
     loadUnreadCount();
-
     if (loggedIn) {
       cleanup = subscribeNotifications((payload) => {
         setUnreadCount((current) => current + 1);
         toast.show(`${payload.title || "New notification"}: ${payload.body || payload.data?.body || "You have a new update."}`, "info", 7000);
       });
     }
-
     return cleanup;
   }, [loggedIn, toast]);
 
@@ -179,34 +174,24 @@ export default function Navbar() {
         <div className="flex min-w-0 items-center gap-8">
           <BrandMark onClick={() => setOpen(false)} />
           <nav className="hidden items-center gap-1 lg:flex">
-            {publicLinks.map((item) => (
-              <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} />
-            ))}
+            {publicLinks.map((item) => <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} />)}
           </nav>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button data-no-translate variant="ghost" size="sm" onClick={toggle} aria-label="Toggle language">
+          <Button data-no-translate translate="no" variant="ghost" size="sm" onClick={toggle} aria-label="Toggle language">
             <Languages className="size-4" />
             {lang === "en" ? "EN" : "हि"}
           </Button>
 
           {!loggedIn ? (
             <>
-              <Button className="hidden sm:inline-flex" variant="outline" size="sm" onClick={() => navigate("/login")}>
-                {t("nav.login", "Login")}
-              </Button>
-              <Button className="hidden sm:inline-flex" variant="signal" size="sm" onClick={() => navigate("/register")}>
-                Join Now
-              </Button>
+              <Button className="hidden sm:inline-flex" variant="outline" size="sm" onClick={() => navigate("/login")}>{t("nav.login", "Login")}</Button>
+              <Button className="hidden sm:inline-flex" variant="signal" size="sm" onClick={() => navigate("/register")}>Join Now</Button>
             </>
           ) : (
             <div ref={menuRef} className="relative hidden sm:block">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((value) => !value)}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-2.5 text-sm font-semibold text-foreground shadow-float transition hover:bg-accent"
-              >
+              <button type="button" onClick={() => setMenuOpen((value) => !value)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-2.5 text-sm font-semibold text-foreground shadow-float transition hover:bg-accent">
                 <span className="relative grid size-8 place-items-center rounded-lg bg-gradient-signal text-sm font-bold text-signal-foreground">
                   {displayName[0]?.toUpperCase() || "U"}
                   {unreadCount > 0 ? <span className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] text-background">{unreadCount}</span> : null}
@@ -219,10 +204,7 @@ export default function Navbar() {
                 <div className="absolute right-0 mt-3 w-64 rounded-2xl border border-border bg-card p-3 shadow-lift">
                   <div className="border-b border-border px-2 pb-3">
                     <strong className="block truncate text-sm">{displayName}</strong>
-                    <span className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <UserRound className="size-3.5" />
-                      {getRoleLabel(role)}
-                    </span>
+                    <span className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground"><UserRound className="size-3.5" />{getRoleLabel(role)}</span>
                   </div>
                   <div className="mt-2 grid gap-1">
                     {(profileLinks[role] || []).map((link) => (
@@ -249,9 +231,7 @@ export default function Navbar() {
       {open ? (
         <div className="border-t border-border bg-card px-4 py-4 shadow-lift lg:hidden">
           <nav className="mx-auto grid max-w-7xl gap-2">
-            {publicLinks.map((item) => (
-              <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} onClick={() => setOpen(false)} />
-            ))}
+            {publicLinks.map((item) => <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} onClick={() => setOpen(false)} />)}
             {!loggedIn ? (
               <div className="mt-2 grid gap-2 sm:hidden">
                 <Button variant="outline" onClick={() => go("/login")}>{t("nav.login", "Login")}</Button>

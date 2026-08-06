@@ -4,7 +4,7 @@ import { sendMail } from "./mail.service.js";
 import { sendPushNotification } from "./firebase.service.js";
 import { emitNotificationToUser, emitNotificationToRole, emitGlobalNotification } from "../utils/socket.js";
 
-export async function createNotification({ recipient, targetRole, title, body, channel = "inApp", metadata = {}, sendEmail = false, sendPush = false, realtime = true }) {
+export async function createNotification({ recipient, targetRole, title, body, channel = "inApp", metadata = {}, sendEmail = false, sendPush = false, realtime = true, emailHtml = "", emailSubject = "" }) {
   const notificationPayload = {
     title,
     body,
@@ -17,7 +17,7 @@ export async function createNotification({ recipient, targetRole, title, body, c
     const item = await Notification.create({ ...notificationPayload, recipient });
     const user = await User.findById(recipient);
     if (sendEmail && user?.email) {
-      await sendMail({ to: user.email, subject: title, html: `<p>${body}</p>` });
+      await sendMail({ to: user.email, subject: emailSubject || title, html: emailHtml || `<p>${body}</p>` });
     }
     if (sendPush && user?.pushTokens?.length) {
       await sendPushNotification(user.pushTokens, { notification: { title, body }, data: { type: metadata?.type || "notification", id: String(item._id), ...metadata } });
@@ -34,7 +34,7 @@ export async function createNotification({ recipient, targetRole, title, body, c
   const created = docs.length ? await Notification.insertMany(docs) : [];
 
   if (sendEmail) {
-    await Promise.all(users.map((user) => user.email ? sendMail({ to: user.email, subject: title, html: `<p>${body}</p>` }) : Promise.resolve()));
+    await Promise.all(users.map((user) => user.email ? sendMail({ to: user.email, subject: emailSubject || title, html: emailHtml || `<p>${body}</p>` }) : Promise.resolve()));
   }
 
   if (sendPush) {

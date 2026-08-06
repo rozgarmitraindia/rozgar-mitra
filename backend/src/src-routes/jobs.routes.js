@@ -4,7 +4,7 @@ import { Application } from "../models/Application.js";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { User } from "../models/User.js";
 import { sendMail } from "../services/mail.service.js";
-import { sendError, sendSuccess } from "../utils/apiResponse.js";
+import { asyncHandler, sendError, sendSuccess } from "../utils/apiResponse.js";
 
 export const jobsRouter = Router();
 
@@ -34,10 +34,15 @@ jobsRouter.get("/:id", optionalAuth, async (req, res) => {
   const obj = item.toObject();
   obj.isSaved = req.user ? (req.user.savedJobs || []).map(String).includes(String(item._id)) : false;
   obj.savedCount = await User.countDocuments({ savedJobs: item._id });
+  obj.applied = req.user?.role === "candidate" ? Boolean(await Application.exists({ job: item._id, candidate: req.user._id })) : false;
+  if (!obj.applied) {
+    delete obj.contactNumber;
+    obj.contactLocked = true;
+  }
   return sendSuccess(res, { message: "Job fetched", data: obj });
 });
 
-jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), async (req, res) => {
+jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyncHandler(async (req, res) => {
   const job = await Job.findById(req.params.id);
   if (!job || job.status !== "live") return sendError(res, { statusCode: 404, code: "JOB_NOT_LIVE", message: "Job not live" });
   const now = new Date();
@@ -51,7 +56,18 @@ jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyn
   }
   const existing = await Application.findOne({ job: job._id, candidate: req.user._id });
   if (existing) return sendError(res, { statusCode: 409, code: "DUPLICATE_APPLICATION", message: "You have already applied to this job" });
-  const candidateDocuments = req.user.documents || [];
+  const candidateDocuments = (req.user.documents || []).map((doc) => {
+    const source = typeof doc.toObject === "function" ? doc.toObject() : doc;
+    return {
+      type: source.type,
+      url: source.url,
+      publicId: source.publicId,
+      resourceType: source.resourceType,
+      format: source.format,
+      originalName: source.originalName,
+      mimeType: source.mimeType,
+    };
+  }).filter((doc) => doc.url);
   const governmentId = candidateDocuments.find((doc) => ["government-id", "govt-id", "aadhaar", "document"].includes(String(doc.type || "").toLowerCase()));
   const governmentIdUrl = req.body.governmentIdUrl || governmentId?.url;
   if (!governmentIdUrl) {
@@ -73,7 +89,11 @@ jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyn
       candidateResumeUrl: req.user.resume?.url || "",
       candidateProfilePhotoUrl: req.user.profilePhoto?.url || "",
     });
-    await sendMail({ to: req.user.email, subject: "Application submitted", html: `<p>Your application for ${job.title} has been submitted.</p>` });
+    try {
+      await sendMail({ to: req.user.email, subject: "Application submitted", html: `<p>Your application for ${job.title} has been submitted.</p>` });
+    } catch (mailError) {
+      console.error("Application confirmation mail failed", { email: req.user.email, error: mailError.message });
+    }
     return sendSuccess(res, { statusCode: 201, message: "Application submitted", data: { application } });
   } catch (error) {
     if (error.code === 11000) {
@@ -81,7 +101,7 @@ jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyn
     }
     throw error;
   }
-});
+}));
 
 jobsRouter.post("/:id/wishlist", requireAuth, requireRole("candidate"), async (req, res) => {
   const jobId = req.params.id;

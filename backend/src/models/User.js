@@ -4,6 +4,10 @@ const documentSchema = new mongoose.Schema({
   type: String,
   url: String,
   publicId: String,
+  resourceType: String,
+  format: String,
+  originalName: String,
+  mimeType: String,
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({

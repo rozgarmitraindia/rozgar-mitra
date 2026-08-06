@@ -1,6 +1,22 @@
 import { useState } from "react";
+import { BellRing, Mail, Megaphone, Radio, Send, ShieldCheck } from "lucide-react";
 import { adminFetch } from "./adminApi.js";
 import ListModule from "./ListModule.jsx";
+
+const audiences = [
+  ["", "All active users", "Everyone with an active account"],
+  ["candidate", "Candidates", "Job seekers and applicants"],
+  ["employer", "Employers", "Companies and hiring teams"],
+  ["roomOwner", "Room Owners", "PG, hotel and room partners"],
+  ["admin", "Admins", "Internal admin operators"],
+];
+
+const channels = [
+  ["inApp", "In App", BellRing],
+  ["email", "Email", Mail],
+  ["push", "Push", Radio],
+  ["system", "System", ShieldCheck],
+];
 
 function NotificationsComposer({ onSent }) {
   const [title, setTitle] = useState("");
@@ -8,10 +24,12 @@ function NotificationsComposer({ onSent }) {
   const [channel, setChannel] = useState("inApp");
   const [targetRole, setTargetRole] = useState("");
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
     setMessage("");
+    setSending(true);
     try {
       const result = await adminFetch("/admin/notifications", {
         method: "POST",
@@ -23,42 +41,67 @@ function NotificationsComposer({ onSent }) {
       onSent?.();
     } catch (err) {
       setMessage(err.message);
+    } finally {
+      setSending(false);
     }
   }
 
   return (
-    <form className="form-card" onSubmit={submit} style={{ marginBottom: 18 }}>
-      <div className="section-label">Create Notification</div>
-      <h2 className="form-title">Notify Users</h2>
-      {message ? <div className="login-success">{message}</div> : null}
-      <div className="form-group">
-        <label className="form-label">Audience</label>
-        <select className="form-select" value={targetRole} onChange={(event) => setTargetRole(event.target.value)}>
-          <option value="">All active users</option>
-          <option value="candidate">Candidates</option>
-          <option value="employer">Employers</option>
-          <option value="roomOwner">Room Owners</option>
-          <option value="admin">Admins</option>
-        </select>
+    <form className="form-card admin-notification-composer" onSubmit={submit}>
+      <div className="admin-composer-head">
+        <div className="admin-composer-icon"><Megaphone size={22} /></div>
+        <div>
+          <div className="section-label">Broadcast Center</div>
+          <h1 className="form-title">Notify Users</h1>
+          <p className="section-desc">Send operational updates to the right audience without leaving the admin console.</p>
+        </div>
       </div>
-      <div className="form-group">
-        <label className="form-label">Title</label>
-        <input className="form-input" value={title} onChange={(event) => setTitle(event.target.value)} required />
+
+      {message ? <div className={message.toLowerCase().includes("failed") || message.toLowerCase().includes("error") ? "login-error" : "login-success"}>{message}</div> : null}
+
+      <div className="admin-composer-grid">
+        <div className="admin-composer-main">
+          <label className="form-group">
+            <span className="form-label">Title</span>
+            <input className="form-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Interview schedule reminder" required />
+          </label>
+          <label className="form-group">
+            <span className="form-label">Message</span>
+            <textarea className="form-textarea admin-notification-textarea" value={body} onChange={(event) => setBody(event.target.value)} placeholder="Write a clear update for users..." required />
+          </label>
+        </div>
+
+        <div className="admin-composer-side">
+          <div>
+            <span className="form-label">Audience</span>
+            <div className="admin-choice-list">
+              {audiences.map(([value, label, helper]) => (
+                <button type="button" key={label} className={`admin-choice ${targetRole === value ? "active" : ""}`} onClick={() => setTargetRole(value)}>
+                  <strong>{label}</strong>
+                  <span>{helper}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className="form-label">Channel</span>
+            <div className="admin-channel-grid">
+              {channels.map(([value, label, Icon]) => (
+                <button type="button" key={value} className={`admin-channel ${channel === value ? "active" : ""}`} onClick={() => setChannel(value)}>
+                  <Icon size={17} />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button className="btn-search admin-send-button" type="submit" disabled={sending}>
+            {sending ? <span className="loading-spinner" /> : <Send size={16} />}
+            {sending ? "Sending..." : "Send to Audience"}
+          </button>
+        </div>
       </div>
-      <div className="form-group">
-        <label className="form-label">Channel</label>
-        <select className="form-select" value={channel} onChange={(event) => setChannel(event.target.value)}>
-          <option value="inApp">In App</option>
-          <option value="email">Email</option>
-          <option value="system">System</option>
-          <option value="push">Push</option>
-        </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Body</label>
-        <textarea className="form-textarea" value={body} onChange={(event) => setBody(event.target.value)} required />
-      </div>
-      <button className="btn-search" type="submit">Send to Audience</button>
     </form>
   );
 }
@@ -66,19 +109,9 @@ function NotificationsComposer({ onSent }) {
 export default function Notifications() {
   const [refreshToken, setRefreshToken] = useState(0);
   return (
-    <div className="admin-content-grid admin-tools-page">
+    <div className="admin-notifications-page">
       <NotificationsComposer onSent={() => setRefreshToken((value) => value + 1)} />
       <ListModule moduleKey="notifications" refreshToken={refreshToken} />
     </div>
-  );
-}
-
-function ListModulePlaceholder() {
-  return (
-    <section className="form-card">
-      <div className="section-label">Notifications</div>
-      <h1 className="form-title">Recent Notifications</h1>
-      <p className="section-desc">View sent notifications and system messages here.</p>
-    </section>
   );
 }

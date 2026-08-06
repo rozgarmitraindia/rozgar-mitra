@@ -27,22 +27,44 @@ export function getFirebaseMessaging() {
   }
 }
 
-export async function requestToken(vapidKey) {
+async function resetMessagingStorage() {
+  if (!("indexedDB" in window)) return;
+  const names = ["firebase-messaging-database", "fcm_token_details_db"];
+  await Promise.all(names.map((name) => new Promise((resolve) => {
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess = request.onerror = request.onblocked = () => resolve();
+  })));
+}
+
+async function ensureMessagingServiceWorker() {
+  if (!("serviceWorker" in navigator)) return null;
+  const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { updateViaCache: "none" });
+  try {
+    await registration.update();
+  } catch {
+    // The existing registration can still be used.
+  }
+  return registration;
+}
+
+export async function requestToken(vapidKey, retry = true) {
   const messaging = getFirebaseMessaging();
   if (!messaging) return null;
   try {
     let registration = null;
-    if ('serviceWorker' in navigator) {
-      try {
-        registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      } catch (err) {
-        console.warn('Service worker registration failed', err);
-      }
+    try {
+      registration = await ensureMessagingServiceWorker();
+    } catch (err) {
+      console.warn('Service worker registration failed', err);
     }
     const options = registration ? { vapidKey, serviceWorkerRegistration: registration } : { vapidKey };
     const currentToken = await getToken(messaging, options);
     return currentToken;
   } catch (e) {
+    if (retry && e?.name === "VersionError") {
+      await resetMessagingStorage();
+      return requestToken(vapidKey, false);
+    }
     console.error('Failed to get FCM token', e);
     return null;
   }

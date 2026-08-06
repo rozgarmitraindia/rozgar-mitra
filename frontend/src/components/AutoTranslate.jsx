@@ -18,7 +18,7 @@ import { useLanguage } from "../contexts/LanguageContext.jsx";
  * repeated toggles. Results are cached in localStorage.
  */
 
-const CACHE_KEY = "rm_translate_cache_v2";
+const CACHE_KEY = "rm_translate_cache_v3";
 let cache = {};
 try {
   cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
@@ -79,7 +79,7 @@ function collectTextNodes(root) {
       const parent = node.parentElement;
       if (!parent) return NodeFilter.FILTER_REJECT;
       if (SKIP_TAGS.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
-      if (parent.closest("[data-no-translate]")) return NodeFilter.FILTER_REJECT;
+      if (parent.closest("[data-no-translate],[translate='no']")) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     },
   });
@@ -111,6 +111,7 @@ async function translateNode(node, targetLang) {
 
 async function translateAttrsOn(el, targetLang) {
   for (const attr of ATTRS_TO_TRANSLATE) {
+    if (el.closest?.("[data-no-translate],[translate='no']")) continue;
     if (!el.hasAttribute(attr)) continue;
     if (!originalAttrMap.has(el)) originalAttrMap.set(el, {});
     const store = originalAttrMap.get(el);

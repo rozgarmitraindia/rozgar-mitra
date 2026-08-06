@@ -1,21 +1,22 @@
 import { apiFetch } from "../../utils/auth.js";
 
 export const modules = [
-  { key: "dashboard", label: "Dashboard", group: "Overview", icon: "◫", description: "Live metrics and website control" },
-  { key: "analytics", label: "Analytics", group: "Overview", icon: "↗", description: "Growth trends and platform performance" },
-  { key: "reports", label: "Reports", group: "Overview", icon: "▤", description: "Status breakdowns and insights" },
-  { key: "candidates", label: "Candidates", group: "Management", icon: "◎", description: "Candidate verification and accounts" },
-  { key: "employers", label: "Employers", group: "Management", icon: "▣", description: "Employer accounts and company profiles" },
-  { key: "admins", label: "Admins", group: "Management", icon: "◇", description: "Platform administrators and super admins" },
-  { key: "room-owners", label: "Room Owners", group: "Management", icon: "⌂", description: "Room owner accounts and listings" },
-  { key: "jobs", label: "Jobs Verification", group: "Reviews", icon: "□", description: "Approve jobs before they go live", filter: "pending" },
-  { key: "rooms", label: "Rooms Verification", group: "Reviews", icon: "▥", description: "Approve room listings before publication", filter: "pending" },
-  { key: "applications", label: "Applications", group: "Reviews", icon: "≡", description: "Manage candidate applications and hiring" },
-  { key: "bookings", label: "Bookings", group: "Management", icon: "◷", description: "Monitor room bookings and confirmations" },
+  { key: "dashboard", label: "Dashboard", group: "Overview", icon: "DB", description: "Live metrics and website control" },
+  { key: "analytics", label: "Analytics", group: "Overview", icon: "AN", description: "Growth trends and platform performance" },
+  { key: "reports", label: "Reports", group: "Overview", icon: "RP", description: "Status breakdowns and insights" },
+  { key: "candidates", label: "Candidates", group: "Management", icon: "CA", description: "Candidate verification and accounts" },
+  { key: "employers", label: "Employers", group: "Management", icon: "EM", description: "Employer accounts and company profiles" },
+  { key: "admins", label: "Admins", group: "Management", icon: "AD", description: "Platform administrators and super admins" },
+  { key: "room-owners", label: "Room Owners", group: "Management", icon: "RO", description: "Room owner accounts and listings" },
+  { key: "jobs", label: "Jobs Verification", group: "Reviews", icon: "JV", description: "Approve jobs before they go live", filter: "pending" },
+  { key: "rooms", label: "Rooms Verification", group: "Reviews", icon: "RV", description: "Approve room listings before publication", filter: "pending" },
+  { key: "live-listings", label: "Live Listings", group: "Reviews", icon: "LV", description: "Manage live jobs and rooms" },
+  { key: "applications", label: "Applications", group: "Reviews", icon: "AP", description: "Manage candidate applications and hiring" },
+  { key: "bookings", label: "Bookings", group: "Management", icon: "BK", description: "Monitor room bookings and confirmations" },
   { key: "complaints", label: "Complaints", group: "Reviews", icon: "!", description: "Resolve complaints and platform issues" },
-  { key: "notifications", label: "Notifications", group: "Tools", icon: "◉", description: "Send announcements and alerts" },
-  { key: "system-logs", label: "System Logs", group: "Tools", icon: "⌘", description: "Audit trail and admin event history" },
-  { key: "settings", label: "Settings", group: "Tools", icon: "⚙", description: "Platform settings and admin preferences" },
+  { key: "notifications", label: "Notifications", group: "Tools", icon: "NT", description: "Send announcements and alerts" },
+  { key: "system-logs", label: "System Logs", group: "Tools", icon: "SL", description: "Audit trail and admin event history" },
+  { key: "settings", label: "Settings", group: "Tools", icon: "ST", description: "Platform settings and admin preferences" },
 ];
 
 export const moduleTitles = Object.fromEntries(modules.map((item) => [item.key, item.label]));

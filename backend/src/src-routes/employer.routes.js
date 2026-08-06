@@ -48,6 +48,72 @@ function validateInterviewDetails(payload = {}) {
   };
 }
 
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function interviewGuidance(interview) {
+  if (interview.mode === "remote") {
+    return [
+      "Join from a quiet place with stable internet and no background interruptions.",
+      "Keep your phone charged, documents ready, and join five minutes before the planned time.",
+      "Use headphones if possible and keep camera/microphone permissions ready.",
+    ];
+  }
+  return [
+    "Reach the venue at least 30 minutes before the scheduled time.",
+    "Carry your government ID and relevant documents in original or clear digital copy.",
+    "Use the provided map link and support contact if you need directions.",
+  ];
+}
+
+function applicationMailTemplate({ heading, intro, app, details = [], note = "", guidance = [] }) {
+  const rows = [
+    ["Candidate", app.candidate?.fullName || "Candidate"],
+    ["Job", app.job?.title || "Job"],
+    ["Company", reqSafeCompany(app)],
+  ].map(([label, value]) => [label, escapeHtml(value)]);
+  const detailRows = details.map(([label, value]) => [label, value]);
+  return `
+    <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.55">
+      <h2 style="margin:0 0 12px">${escapeHtml(heading)}</h2>
+      <p>${escapeHtml(intro)}</p>
+      <table style="border-collapse:collapse;width:100%;max-width:640px;margin:18px 0">
+        ${[...rows, ...detailRows].map(([label, value]) => `<tr><td style="border:1px solid #e5e7eb;padding:10px;font-weight:700;background:#f9fafb">${escapeHtml(label)}</td><td style="border:1px solid #e5e7eb;padding:10px">${value}</td></tr>`).join("")}
+      </table>
+      ${guidance.length ? `<h3 style="margin:18px 0 8px">Important instructions</h3><ul>${guidance.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+      ${note ? `<p style="margin-top:18px">${escapeHtml(note)}</p>` : ""}
+      <p style="margin-top:24px;color:#6b7280;font-size:13px">This update was sent automatically by Rozgar Mitra.</p>
+    </div>
+  `;
+}
+
+function reqSafeCompany(app) {
+  return app.job?.companyName || app.employer?.companyName || "Employer";
+}
+
+async function notifyCandidateUpdate({ app, title, body, type, emailHtml, emailSubject, extraMetadata = {} }) {
+  try {
+    await createNotification({
+      recipient: app.candidate._id,
+      title,
+      body,
+      metadata: { type, applicationId: String(app._id), jobId: String(app.job._id), ...extraMetadata },
+      sendEmail: true,
+      sendPush: true,
+      emailSubject: emailSubject || title,
+      emailHtml,
+    });
+  } catch (error) {
+    console.error("Unable to send candidate notification", error);
+  }
+}
+
 employerRouter.get("/summary", requireAuth, async (req, res) => {
   if (req.user.role === "employer") {
     const jobs = await Job.find({ employer: req.user._id });
@@ -184,7 +250,18 @@ employerRouter.post("/applications/:id/shortlist", requireAuth, requireRole("emp
   if (["hired", "rejected"].includes(app.status)) return sendError(res, { statusCode: 400, code: "APPLICATION_CLOSED", message: "This application is already closed" });
   app.status = "shortlisted";
   await app.save();
-  await createNotification({ recipient: app.candidate._id, title: "Application shortlisted", body: `You have been shortlisted for ${app.job.title}.`, metadata: { type: "application_shortlisted", applicationId: String(app._id), jobId: String(app.job._id) }, sendEmail: true });
+  await notifyCandidateUpdate({
+    app,
+    title: "Application shortlisted",
+    body: `You have been shortlisted for ${app.job.title}. Please watch for the next hiring update.`,
+    type: "application_shortlisted",
+    emailHtml: applicationMailTemplate({
+      heading: "Application Shortlisted",
+      intro: "Your profile has moved to the next hiring stage.",
+      app,
+      note: "The employer may schedule an interview or request additional information from your dashboard.",
+    }),
+  });
   return sendSuccess(res, { message: "Candidate shortlisted", data: { application: app } });
 });
 
@@ -201,15 +278,28 @@ employerRouter.post("/applications/:id/interview", requireAuth, requireRole("emp
   app.status = "interview";
   app.interview = interview;
   await app.save();
-  await sendMail({ to: app.candidate.email, subject: "Interview scheduled", html: `<h2>Interview scheduled</h2><p>Your interview for <b>${app.job.title}</b> is scheduled on ${interview.date} at ${interview.time}.</p><p>Mode: ${interview.mode}</p><p>${interview.mode === "remote" ? `Meeting link: <a href="${interview.meetingUrl}">${interview.meetingUrl}</a>` : `Location: ${interview.locationAddress}`}</p><p>Support: ${interview.supportContact}</p>` });
-  await createNotification({ recipient: app.candidate._id, title: "Interview scheduled", body: `${app.job.title}: ${interview.date}, ${interview.time} (${interview.mode})`, metadata: { type: "interview", applicationId: String(app._id), jobId: String(app.job._id), ...interview } });
-  try {
-    const firebase = getFirebaseAdmin();
-    if (firebase) {
-      const tokens = app.candidate.pushTokens || [];
-      if (tokens.length) await firebase.messaging().sendEachForMulticast({ tokens, notification: { title: 'Interview scheduled', body: `Interview for ${app.job.title}` } });
-    }
-  } catch (e) { console.error('Push error', e); }
+  const modeLabel = interview.mode === "remote" ? "Online / remote" : "Physical / in-person";
+  await notifyCandidateUpdate({
+    app,
+    title: "Planned Interview Window",
+    body: `${app.job.title}: ${interview.date} at ${interview.time} (${modeLabel}). Check your instructions before joining.`,
+    type: "interview",
+    extraMetadata: interview,
+    emailHtml: applicationMailTemplate({
+      heading: "Planned Interview Window",
+      intro: "Your interview has been scheduled. Please follow the instructions below carefully.",
+      app,
+      details: [
+        ["Date", escapeHtml(interview.date)],
+        ["Time", escapeHtml(interview.time)],
+        ["Mode", escapeHtml(modeLabel)],
+        ["Interview access", interview.mode === "remote" ? `<a href="${escapeHtml(interview.meetingUrl)}">${escapeHtml(interview.meetingUrl)}</a>` : escapeHtml(interview.locationAddress)],
+        ["Map link", interview.mapLink ? `<a href="${escapeHtml(interview.mapLink)}">${escapeHtml(interview.mapLink)}</a>` : "-"],
+        ["Support contact", escapeHtml(interview.supportContact)],
+      ],
+      guidance: interviewGuidance(interview),
+    }),
+  });
   return sendSuccess(res, { message: "Interview scheduled", data: { application: app } });
 });
 
@@ -219,33 +309,42 @@ employerRouter.post("/applications/:id/hire", requireAuth, requireRole("employer
   app.status = "hired";
   app.offer = req.body;
   await app.save();
-  await sendMail({ to: app.candidate.email, subject: "You are hired", html: `<p>Congratulations. You are hired for ${app.job.title}.</p><pre>${JSON.stringify(req.body, null, 2)}</pre>` });
-  await createNotification({ recipient: app.candidate._id, title: "You are hired", body: `Congratulations! You have been hired for ${app.job.title}.`, metadata: { type: "hired", applicationId: String(app._id), jobId: String(app.job._id) } });
-  try {
-    const firebase = getFirebaseAdmin();
-    if (firebase) {
-      const tokens = app.candidate.pushTokens || [];
-      if (tokens.length) await firebase.messaging().sendEachForMulticast({ tokens, notification: { title: 'You are hired', body: `Hired for ${app.job.title}` } });
-    }
-  } catch (e) { console.error('Push error', e); }
+  await notifyCandidateUpdate({
+    app,
+    title: "Selection confirmed",
+    body: `Congratulations! You have been selected for ${app.job.title}.`,
+    type: "hired",
+    emailHtml: applicationMailTemplate({
+      heading: "Selection Confirmed",
+      intro: "Congratulations. The employer has selected your application.",
+      app,
+      note: "Please keep your phone and email active for joining or onboarding instructions.",
+    }),
+  });
   return sendSuccess(res, { message: "Candidate hired", data: { application: app } });
 });
 
 employerRouter.post("/applications/:id/reject", requireAuth, requireRole("employer"), async (req, res) => {
   const app = await populateApplication(Application.findOne({ _id: req.params.id, employer: req.user._id }));
   if (!app) return sendError(res, { statusCode: 404, code: "APPLICATION_NOT_FOUND", message: "Application not found" });
+  const reason = String(req.body.reason || "").trim();
+  if (!reason) return sendError(res, { statusCode: 400, code: "REJECTION_REASON_REQUIRED", message: "A professional rejection reason is required" });
   app.status = "rejected";
-  app.rejectionReason = req.body.reason;
+  app.rejectionReason = reason;
   await app.save();
-  await sendMail({ to: app.candidate.email, subject: "Application update", html: `<p>Your application for ${app.job.title} was not selected.</p><p>${req.body.reason || ""}</p>` });
-  await createNotification({ recipient: app.candidate._id, title: "Application update", body: `Your application for ${app.job.title} was not selected. ${req.body.reason || ""}`, metadata: { type: "application_rejected", applicationId: String(app._id), jobId: String(app.job._id) } });
-  try {
-    const firebase = getFirebaseAdmin();
-    if (firebase) {
-      const tokens = app.candidate.pushTokens || [];
-      if (tokens.length) await firebase.messaging().sendEachForMulticast({ tokens, notification: { title: 'Application update', body: `Your application for ${app.job.title}` } });
-    }
-  } catch (e) { console.error('Push error', e); }
+  await notifyCandidateUpdate({
+    app,
+    title: "Application update",
+    body: `Your application for ${app.job.title} was not selected. Reason: ${reason}`,
+    type: "application_rejected",
+    emailHtml: applicationMailTemplate({
+      heading: "Application Update",
+      intro: "Thank you for applying. The employer has closed this application with the reason below.",
+      app,
+      details: [["Reason", escapeHtml(reason)]],
+      note: "You can continue applying to other verified opportunities on Rozgar Mitra.",
+    }),
+  });
   return sendSuccess(res, { message: "Application rejected", data: { application: app } });
 });
 

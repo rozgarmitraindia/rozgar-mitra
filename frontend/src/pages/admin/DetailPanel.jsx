@@ -1,13 +1,14 @@
-import { useState } from "react";
-import { ExternalLink, FileText, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, ExternalLink, FileText, ImageIcon, X } from "lucide-react";
 import { moduleTitles, pickName, pickEmail, statusOptions } from "./adminApi.js";
 
 function ValueRow({ label, value }) {
   if (value === undefined || value === null || value === "" || (Array.isArray(value) && !value.length)) return null;
   const display = Array.isArray(value) ? value.join(", ") : value;
   return (
-    <p>
-      <strong>{label}:</strong> {display}
+    <p className="admin-value-row">
+      <span>{label}</span>
+      <strong>{display}</strong>
     </p>
   );
 }
@@ -23,22 +24,101 @@ function StatusPill({ status }) {
 
 function DocumentPreview({ title, doc }) {
   const [open, setOpen] = useState(false);
-  if (!doc) return null;
-  const url = typeof doc === "string" ? doc : doc.url;
-  if (!url) return null;
-  const isImage = /\.(png|jpg|jpeg|webp|gif)(\?.*)?$/i.test(url) || /profile|photo|logo/i.test(doc.type || title);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const url = typeof doc === "string" ? doc : doc?.url;
+  const type = String(doc?.type || title || "");
+  const isImage = /\.(png|jpg|jpeg|webp|gif)(\?.*)?$/i.test(url) || /profile|photo|logo|image/i.test(type);
+  const isPdf = /\.pdf(\?.*)?$/i.test(url) || /pdf|government|document|resume|id|aadhaar|proof/i.test(type);
+  const isBlockedCloudinaryPdf = Boolean(url && /res\.cloudinary\.com\/.+\/image\/upload\/.+\.pdf/i.test(url));
+  const [blobPreviewUrl, setBlobPreviewUrl] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewUrl = blobPreviewUrl || (isPdf && url ? `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(url)}` : url);
+
+  useEffect(() => {
+    if (!open || !url || isImage || isBlockedCloudinaryPdf) return undefined;
+    const controller = new AbortController();
+    let objectUrl = "";
+    setPreviewLoading(true);
+    setPreviewFailed(false);
+    setBlobPreviewUrl("");
+
+    fetch(url, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("Unable to load document");
+        return response.blob();
+      })
+      .then((blob) => {
+        const normalizedBlob = isPdf ? new Blob([blob], { type: "application/pdf" }) : blob;
+        objectUrl = URL.createObjectURL(normalizedBlob);
+        setBlobPreviewUrl(objectUrl);
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") setPreviewFailed(true);
+      })
+      .finally(() => setPreviewLoading(false));
+
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [open, url, isImage, isPdf]);
+
+  if (!doc || !url) return null;
+
+  function openModal() {
+    setPreviewFailed(false);
+    setOpen(true);
+  }
+
   return (
     <>
-      <button className="admin-doc" type="button" onClick={() => setOpen(true)}>
-        {isImage ? <img src={url} alt={title} /> : <span className="admin-doc-icon"><FileText size={32} /></span>}
+      <button className="admin-doc" type="button" onClick={openModal}>
+        {isImage ? <img src={url} alt={title} /> : <span className="admin-doc-icon">{isPdf ? <FileText size={32} /> : <ImageIcon size={32} />}</span>}
         <b>{title}</b>
-        <span>Preview</span>
+        <span>{isImage ? "View image" : "Preview / open"}</span>
       </button>
       {open ? (
         <div className="document-modal" role="dialog" aria-modal="true" aria-label={`${title} preview`} onMouseDown={() => setOpen(false)}>
           <div className="document-modal-card" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="document-modal-head"><strong>{title}</strong><div><a href={url} target="_blank" rel="noreferrer" className="btn-secondary">Open <ExternalLink size={15} /></a><button className="document-close" type="button" onClick={() => setOpen(false)} aria-label="Close preview"><X size={20} /></button></div></div>
-            {isImage ? <img className="document-modal-image" src={url} alt={title} /> : <iframe className="document-modal-frame" src={url} title={title} />}
+            <div className="document-modal-head">
+              <div>
+                <strong>{title}</strong>
+                <span>{isPdf ? "PDF/document preview" : "Document preview"}</span>
+              </div>
+              <div>
+                {!isBlockedCloudinaryPdf ? (
+                  <>
+                    <a href={url} target="_blank" rel="noreferrer" className="btn-secondary">Open <ExternalLink size={15} /></a>
+                    <a href={url} download className="btn-secondary">Download <Download size={15} /></a>
+                  </>
+                ) : null}
+                <button className="document-close" type="button" onClick={() => setOpen(false)} aria-label="Close preview"><X size={20} /></button>
+              </div>
+            </div>
+            {isBlockedCloudinaryPdf ? (
+              <div className="document-preview-fallback">
+                <FileText size={42} />
+                <h3>Re-upload required</h3>
+                <p>This PDF was uploaded with Cloudinary image delivery, which is blocked by Cloudinary security. New document uploads are fixed; ask the user to upload this document again.</p>
+              </div>
+            ) : previewLoading ? (
+              <div className="document-preview-fallback">
+                <span className="loading-spinner" />
+                <h3>Preparing preview</h3>
+                <p>Document ko secure preview ke liye load kiya ja raha hai.</p>
+              </div>
+            ) : previewFailed ? (
+              <div className="document-preview-fallback">
+                <FileText size={42} />
+                <h3>Preview could not load</h3>
+                <p>Browser PDF preview sometimes blocks Cloudinary raw documents. Open or download the file to review it.</p>
+                <a href={url} target="_blank" rel="noreferrer" className="btn-search">Open document <ExternalLink size={15} /></a>
+              </div>
+            ) : isImage ? (
+              <img className="document-modal-image" src={url} alt={title} onError={() => setPreviewFailed(true)} />
+            ) : (
+              <iframe className="document-modal-frame" src={previewUrl} title={title} onError={() => setPreviewFailed(true)} />
+            )}
           </div>
         </div>
       ) : null}
@@ -46,7 +126,7 @@ function DocumentPreview({ title, doc }) {
   );
 }
 
-export default function DetailPanel({ moduleKey, detail, activity, onClose, onStatus, statusLoading = false, onDelete, deleteLoading = false }) {
+export default function DetailPanel({ moduleKey, detail, activity, onClose, onStatus, statusLoading = false, onDelete, onDeleteAccount, deleteLoading = false }) {
   const item = detail;
   if (!item) return null;
 
@@ -106,6 +186,9 @@ export default function DetailPanel({ moduleKey, detail, activity, onClose, onSt
             <button className="btn-secondary" type="button" onClick={() => onStatus('rejected', true)}>Reject</button>
             <button className="btn-secondary" type="button" onClick={() => onStatus('suspended', true)}>Suspend</button>
             <button className="btn-secondary" type="button" onClick={() => onStatus('unverified', true)}>Unverify</button>
+            <button className="btn-danger" type="button" disabled={deleteLoading || statusLoading} onClick={onDeleteAccount}>
+              {deleteLoading ? "Deleting..." : "Delete Account"}
+            </button>
           </>
         ) : null}
         {['jobs', 'rooms'].includes(moduleKey) ? (
@@ -133,12 +216,13 @@ export default function DetailPanel({ moduleKey, detail, activity, onClose, onSt
         ) : null}
       </div>
 
-      <h3 className="form-title" style={{ fontSize: 20 }}>Documents</h3>
+      <h3 className="form-title admin-section-title">Documents</h3>
       <div className="admin-doc-grid">
         {docs.map(([title, doc], index) => <DocumentPreview key={`${title}-${index}`} title={title} doc={doc} />)}
+        {!docs.some(([, doc]) => doc && (typeof doc === "string" ? doc : doc.url)) ? <p className="admin-empty-inline">No documents uploaded.</p> : null}
       </div>
 
-      <h3 className="form-title" style={{ fontSize: 20, marginTop: 24 }}>Recent Activity</h3>
+      <h3 className="form-title admin-section-title">Recent Activity</h3>
       <div className="admin-activity">
         {(activity || []).map((log) => (
           <div key={log._id} className="detail-desc">

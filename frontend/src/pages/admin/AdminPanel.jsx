@@ -10,6 +10,7 @@ import Complaints from "./Complaints.jsx";
 import Dashboard from "./Dashboard.jsx";
 import Employers from "./Employers.jsx";
 import JobsVerification from "./JobsVerification.jsx";
+import LiveListings from "./LiveListings.jsx";
 import Notifications from "./Notifications.jsx";
 import Reports from "./Reports.jsx";
 import RoomOwners from "./RoomOwners.jsx";
@@ -24,6 +25,7 @@ const pages = {
   admins: Admins,
   "room-owners": RoomOwners,
   jobs: JobsVerification,
+  "live-listings": LiveListings,
   rooms: RoomsVerification,
   applications: Applications,
   bookings: Bookings,

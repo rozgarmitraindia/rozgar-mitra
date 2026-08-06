@@ -19,7 +19,7 @@ const upload = multer({
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
-    if (!allowed.includes(file.mimetype)) return callback(new Error("Unsupported file type"));
+    if (!allowed.includes(file.mimetype)) return callback(Object.assign(new Error("Only JPG, PNG, WEBP, PDF, DOC, and DOCX files are allowed."), { statusCode: 400, code: "UNSUPPORTED_FILE_TYPE" }));
     callback(null, true);
   },
 });
@@ -32,7 +32,8 @@ function folderFor(type, user) {
 
 async function uploadToCloudinary(file, folder) {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream({ folder, resource_type: "auto" }, (error, uploaded) => {
+    const resourceType = file.mimetype?.startsWith("image/") ? "image" : "raw";
+    const stream = cloudinary.uploader.upload_stream({ folder, resource_type: resourceType, timeout: Number(process.env.CLOUDINARY_UPLOAD_TIMEOUT_MS || 60000) }, (error, uploaded) => {
       if (error) reject(error);
       else resolve(uploaded);
     });
@@ -45,13 +46,15 @@ function toDocument(result, type) {
     type,
     url: result.secure_url,
     publicId: result.public_id,
+    resourceType: result.resource_type,
+    format: result.format,
   };
 }
 
 async function uploadSingle(req, res, type, applyToUser) {
   if (!req.file) return sendError(res, { statusCode: 400, code: "FILE_REQUIRED", message: "File required" });
   const result = await uploadToCloudinary(req.file, folderFor(type, req.user));
-  const document = toDocument(result, type);
+  const document = { ...toDocument(result, type), originalName: req.file.originalname, mimeType: req.file.mimetype };
   await applyToUser(document);
   return sendSuccess(res, { statusCode: 201, message: "File uploaded", data: { document, cloudinary: result } });
 }
@@ -97,7 +100,7 @@ uploadRouter.post("/cloudinary/complete", auth, async (req, res, next) => {
   try {
     const { result, type } = req.body || {};
     if (!result || !result.secure_url || !result.public_id) return sendError(res, { statusCode: 400, code: "INVALID_PAYLOAD", message: "Invalid cloudinary result" });
-    const document = { type: type || "general", url: result.secure_url, publicId: result.public_id };
+    const document = { type: type || "general", url: result.secure_url, publicId: result.public_id, resourceType: result.resource_type, format: result.format };
     // apply to user by type
     if (type === "profile") req.user.profilePhoto = document;
     else if (type === "resume") req.user.resume = document;
@@ -159,7 +162,7 @@ uploadRouter.post("/room-photos", auth, authorize("roomOwner"), upload.array("fi
   try {
     if (!req.files?.length) return sendError(res, { statusCode: 400, code: "FILES_REQUIRED", message: "At least one file required" });
     const uploaded = await Promise.all(req.files.map((file) => uploadToCloudinary(file, folderFor("room-photo", req.user))));
-    const documents = uploaded.map((result) => toDocument(result, "room-photo"));
+    const documents = uploaded.map((result, index) => ({ ...toDocument(result, "room-photo"), originalName: req.files[index]?.originalname, mimeType: req.files[index]?.mimetype }));
     req.user.roomPhotos.push(...documents);
     await req.user.save();
     return sendSuccess(res, { statusCode: 201, message: "Room photos uploaded", data: { documents, cloudinary: uploaded } });

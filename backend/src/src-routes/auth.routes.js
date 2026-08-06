@@ -21,7 +21,8 @@ const registrationUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024, files: 12 },
   fileFilter(_req, file, callback) {
     const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-    callback(null, allowed.includes(file.mimetype));
+    if (allowed.includes(file.mimetype)) return callback(null, true);
+    return callback(Object.assign(new Error("Only JPG, PNG, WEBP, PDF, DOC, and DOCX files are allowed."), { statusCode: 400, code: "UNSUPPORTED_FILE_TYPE" }));
   },
 });
 
@@ -127,6 +128,9 @@ function hashToken(token) {
 }
 
 function normalizeRegistrationBody(req, _res, next) {
+  for (const [key, value] of Object.entries(req.body || {})) {
+    if (value === "") delete req.body[key];
+  }
   if (typeof req.body.skills === "string") {
     try {
       req.body.skills = JSON.parse(req.body.skills);
@@ -137,18 +141,50 @@ function normalizeRegistrationBody(req, _res, next) {
   next();
 }
 
+function stripEmptyProfileFields(profile) {
+  return Object.fromEntries(
+    Object.entries(profile).filter(([_key, value]) => {
+      if (value === "") return false;
+      if (Array.isArray(value) && value.length === 0) return false;
+      return value !== undefined && value !== null;
+    }),
+  );
+}
+
 function uploadToCloudinary(file, folder) {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream({ folder, resource_type: "auto" }, (error, result) => {
-      if (error) reject(error);
-      else resolve(result);
+    let settled = false;
+    const timeoutMs = Number(process.env.CLOUDINARY_UPLOAD_TIMEOUT_MS || 60000);
+    const isDocument = !file.mimetype?.startsWith("image/");
+    const resourceType = isDocument ? "raw" : "image";
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(Object.assign(new Error("Document upload timed out. Please try again with smaller files."), { statusCode: 504, code: "CLOUDINARY_UPLOAD_TIMEOUT" }));
+    }, timeoutMs);
+
+    const stream = cloudinary.uploader.upload_stream({ folder, resource_type: resourceType, timeout: timeoutMs }, (error, result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) {
+        reject(Object.assign(error, { statusCode: error.statusCode || error.http_code || 502, code: error.code || "CLOUDINARY_UPLOAD_FAILED" }));
+      } else {
+        resolve(result);
+      }
+    });
+    stream.on("error", (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(Object.assign(error, { statusCode: 502, code: "CLOUDINARY_UPLOAD_FAILED" }));
     });
     Readable.from(file.buffer).pipe(stream);
   });
 }
 
 function documentFromUpload(result, type) {
-  return { type, url: result.secure_url, publicId: result.public_id };
+  return { type, url: result.secure_url, publicId: result.public_id, resourceType: result.resource_type, format: result.format };
 }
 
 async function uploadRegistrationFiles(req, role, email) {
@@ -159,7 +195,7 @@ async function uploadRegistrationFiles(req, role, email) {
   const uploadOne = async (field, type) => {
     const file = files[field]?.[0];
     if (!file) return null;
-    return documentFromUpload(await uploadToCloudinary(file, folder), type);
+    return { ...documentFromUpload(await uploadToCloudinary(file, folder), type), originalName: file.originalname, mimeType: file.mimetype };
   };
 
   const [profilePhoto, resume, govtId, companyLogo, companyDocument, propertyDocument, roomPhotos] = await Promise.all([
@@ -169,7 +205,7 @@ async function uploadRegistrationFiles(req, role, email) {
     uploadOne("companyLogo", "company-logo"),
     uploadOne("companyDocument", "company-document"),
     uploadOne("propertyDocument", "property-document"),
-    Promise.all((files.roomPhotos || []).map(async (file) => documentFromUpload(await uploadToCloudinary(file, folder), "room-photo"))),
+    Promise.all((files.roomPhotos || []).map(async (file) => ({ ...documentFromUpload(await uploadToCloudinary(file, folder), "room-photo"), originalName: file.originalname, mimeType: file.mimetype }))),
   ]);
 
   return {
@@ -246,8 +282,9 @@ async function createAccount(req, res, role, prefix) {
   const otp = makeOtp();
   const passwordHash = await bcrypt.hash(body.password, 12);
   const { password, ...profile } = body;
+  const cleanProfile = stripEmptyProfileFields(profile);
   const user = await User.create({
-    ...profile,
+    ...cleanProfile,
     email,
     role,
     immutableId: makeImmutableId(prefix),
@@ -258,11 +295,17 @@ async function createAccount(req, res, role, prefix) {
     ...uploadedFiles,
   });
 
-  await sendVerificationMail(user);
+  let mailSent = true;
+  try {
+    await sendVerificationMail(user);
+  } catch (error) {
+    mailSent = false;
+    console.error("Registration email failed", { email: user.email, error: error.message });
+  }
   return sendSuccess(res, {
     statusCode: 201,
-    message: "Verification mail sent",
-    data: { immutableId: user.immutableId, email: user.email, status: user.status },
+    message: mailSent ? "Verification mail sent" : "Account created. Verification mail could not be sent, please use resend OTP.",
+    data: { immutableId: user.immutableId, email: user.email, status: user.status, mailSent },
   });
 }
 
@@ -433,9 +476,13 @@ authRouter.post("/google", validate(googleSchema), asyncHandler(async (req, res)
 
 function buildGoogleAuthUrl(role, redirectTo = "/") {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`}/api/auth/google/callback`;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`}/api/auth/google/callback`;
   const state = encodeURIComponent(JSON.stringify({ role, redirectTo }));
   return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent("openid email profile")}&access_type=offline&prompt=select_account&state=${state}`;
+}
+
+function firstConfiguredUrl(value, fallback) {
+  return String(value || fallback).split(",")[0].trim().replace(/\/$/, "");
 }
 
 function parseGoogleState(state) {
@@ -465,7 +512,7 @@ authRouter.get("/google/callback", asyncHandler(async (req, res) => {
     return sendError(res, { statusCode: 400, code: "GOOGLE_AUTH_CODE_REQUIRED", message: "Google auth code is required" });
   }
 
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`}/api/auth/google/callback`;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`}/api/auth/google/callback`;
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -479,7 +526,9 @@ authRouter.get("/google/callback", asyncHandler(async (req, res) => {
   });
   const tokenData = await tokenResponse.json();
   if (!tokenResponse.ok || !tokenData.id_token) {
-    return sendError(res, { statusCode: 500, code: "GOOGLE_TOKEN_EXCHANGE_FAILED", message: tokenData.error_description || tokenData.error || "Failed to exchange Google auth code" });
+    const reason = tokenData.error_description || tokenData.error || "Failed to exchange Google auth code";
+    console.error("Google token exchange failed", { reason, redirectUri, status: tokenResponse.status });
+    return sendError(res, { statusCode: 400, code: "GOOGLE_TOKEN_EXCHANGE_FAILED", message: `${reason}. Confirm this exact redirect URI is allowed in Google Console: ${redirectUri}` });
   }
 
   const verifyResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(tokenData.id_token)}`);
@@ -489,7 +538,6 @@ authRouter.get("/google/callback", asyncHandler(async (req, res) => {
   }
 
   const email = String(verifyData.email).toLowerCase();
-  const role = verifyData.aud ? "candidate" : "candidate"; // fallback role if state parse fails
   const stateData = req.query.state ? parseGoogleState(String(req.query.state)) : { role: "candidate", redirectTo: "/" };
   const userRole = roles.includes(stateData.role) ? stateData.role : "candidate";
   const user = await User.findOneAndUpdate(
@@ -521,7 +569,7 @@ authRouter.get("/google/callback", asyncHandler(async (req, res) => {
     user: JSON.stringify(safeUser),
     redirectTo,
   }).toString();
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const frontendUrl = firstConfiguredUrl(process.env.FRONTEND_URL, "http://localhost:5173");
   return res.redirect(`${frontendUrl}/google-callback?${query}`);
 }));
 

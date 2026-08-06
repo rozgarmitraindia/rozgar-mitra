@@ -1,8 +1,8 @@
 // Firebase Messaging Service Worker
 // NOTE: Replace the firebaseConfig below with your project's config values.
 
-importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
 
 const firebaseConfig = {
   apiKey: "AIzaSyDSjK12QaTMOehqviIoTLZ-DGhdo43yqV4",
