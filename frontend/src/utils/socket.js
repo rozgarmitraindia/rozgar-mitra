@@ -11,10 +11,10 @@ function resolveSocketUrl() {
       const url = new URL(apiBase);
       return `${url.protocol}//${url.host}`;
     } catch {
-      return "http://localhost:3000";
+      return "http://127.0.0.1:3000";
     }
   }
-  return import.meta.env.DEV ? "http://localhost:3000" : window.location.origin;
+  return window.location.origin;
 }
 
 export function getSocket() {
@@ -26,11 +26,16 @@ export function getSocket() {
     auth: { token },
     transports: ["websocket", "polling"],
     autoConnect: false,
+    timeout: 8000,
+    reconnectionAttempts: 2,
+    reconnectionDelay: 4000,
   });
+  socket.on("connect_error", () => {});
   return socket;
 }
 
 export function subscribeNotifications(onNotification) {
+  if (typeof window !== "undefined" && window.__ROZGAR_BACKEND_OFFLINE__) return () => {};
   const sock = getSocket();
   if (!sock) return () => {};
   sock.on("notification", onNotification);

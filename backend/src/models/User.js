@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 const documentSchema = new mongoose.Schema({
+  label: String,
   type: String,
   url: String,
   publicId: String,
@@ -9,6 +10,19 @@ const documentSchema = new mongoose.Schema({
   originalName: String,
   mimeType: String,
 }, { _id: false });
+
+const workExperienceSchema = new mongoose.Schema({
+  application: { type: mongoose.Schema.Types.ObjectId, ref: "Application" },
+  job: { type: mongoose.Schema.Types.ObjectId, ref: "Job" },
+  employer: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  companyName: String,
+  jobTitle: String,
+  role: String,
+  startDate: Date,
+  endDate: Date,
+  status: { type: String, enum: ["active", "ended"], default: "active" },
+  terminationReason: String,
+}, { timestamps: true });
 
 const userSchema = new mongoose.Schema({
   role: { type: String, enum: ["candidate", "employer", "roomOwner", "admin", "superAdmin"], required: true },
@@ -27,6 +41,8 @@ const userSchema = new mongoose.Schema({
   pincode: String,
   skills: [String],
   experience: String,
+  workExperienceMonths: { type: Number, default: 0 },
+  workExperiences: [workExperienceSchema],
   availability: String,
   about: String,
   companyName: String,

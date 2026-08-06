@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BellRing, Mail, Megaphone, Radio, Send, ShieldCheck } from "lucide-react";
+import { BellRing, Mail, Megaphone, Radio, Send, ShieldCheck, Trash2 } from "lucide-react";
 import { adminFetch } from "./adminApi.js";
 import ListModule from "./ListModule.jsx";
 
@@ -108,9 +108,35 @@ function NotificationsComposer({ onSent }) {
 
 export default function Notifications() {
   const [refreshToken, setRefreshToken] = useState(0);
+  const [deletingAll, setDeletingAll] = useState(false);
+
+  async function deleteAllNotifications() {
+    if (!window.confirm("Permanently delete all notifications for all users?")) return;
+    setDeletingAll(true);
+    try {
+      await adminFetch("/admin/notifications/all", { method: "DELETE" });
+      setRefreshToken((value) => value + 1);
+    } catch (err) {
+      alert(err.message || "Unable to delete notifications");
+    } finally {
+      setDeletingAll(false);
+    }
+  }
+
   return (
     <div className="admin-notifications-page">
       <NotificationsComposer onSent={() => setRefreshToken((value) => value + 1)} />
+      <div className="form-card admin-list-head">
+        <div>
+          <div className="section-label">Notification cleanup</div>
+          <h2 className="form-title">Permanent delete tools</h2>
+          <p className="section-desc">Delete particular notifications from the list, or clear all notification records permanently.</p>
+        </div>
+        <button className="btn-danger admin-icon-button" type="button" disabled={deletingAll} onClick={deleteAllNotifications}>
+          <Trash2 size={16} />
+          {deletingAll ? "Deleting..." : "Delete All"}
+        </button>
+      </div>
       <ListModule moduleKey="notifications" refreshToken={refreshToken} />
     </div>
   );

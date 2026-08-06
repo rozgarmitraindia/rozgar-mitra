@@ -65,7 +65,6 @@ export async function requestToken(vapidKey, retry = true) {
       await resetMessagingStorage();
       return requestToken(vapidKey, false);
     }
-    console.error('Failed to get FCM token', e);
     return null;
   }
 }

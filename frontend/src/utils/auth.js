@@ -25,6 +25,24 @@ export function clearSession() {
 
 const rawApiBase = import.meta.env.VITE_API_BASE_URL || "/api";
 export const API_BASE = rawApiBase.replace(/\/+$/, "");
+export const NETWORK_ERROR_MESSAGE = "Service temporarily unavailable. Please try again in a moment.";
+
+export class ApiNetworkError extends Error {
+  constructor(message = NETWORK_ERROR_MESSAGE, cause = null) {
+    super(message);
+    this.name = "ApiNetworkError";
+    this.code = "NETWORK_ERROR";
+    if (cause) this.cause = cause;
+  }
+}
+
+export function isNetworkError(error) {
+  return error?.code === "NETWORK_ERROR" || error?.name === "ApiNetworkError";
+}
+
+function setBackendOffline(value) {
+  if (typeof window !== "undefined") window.__ROZGAR_BACKEND_OFFLINE__ = Boolean(value);
+}
 
 export function isLoggedIn() {
   return Boolean(getSession()?.token);
@@ -36,6 +54,22 @@ export function logout() {
 
 let refreshPromise = null;
 
+async function readResponseBody(response) {
+  const text = await response.text().catch(() => "");
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+}
+
+function errorMessageFromResponse(response, data, fallback = "Request failed") {
+  if (response.status === 429) return data.message || "Server busy hai. Please kuch seconds baad retry karein.";
+  if (response.status >= 500) return data.message || "Server error aa raha hai. Please thodi der baad retry karein.";
+  return data.message || data.error || fallback;
+}
+
 async function performTokenRefresh() {
   const session = getSession();
   if (!session?.refreshToken) return null;
@@ -45,7 +79,7 @@ async function performTokenRefresh() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken: session.refreshToken }),
   });
-  const responseBody = await response.json().catch(() => ({}));
+  const responseBody = await readResponseBody(response);
   if (!response.ok) {
     clearSession();
     throw new Error(responseBody.message || "Your session has expired. Please login again.");
@@ -91,10 +125,10 @@ export async function apiFetch(path, options = {}) {
       headers,
       ...options,
     });
-  } catch {
-    throw new Error("Backend server connect nahi ho raha. Please backend start karein: npm run dev in backend folder.");
+  } catch (error) {
+    throw new ApiNetworkError(NETWORK_ERROR_MESSAGE, error);
   }
-  let data = await response.json().catch(() => ({}));
+  let data = await readResponseBody(response);
 
   if (response.status === 401 && session?.refreshToken && path !== "/auth/refresh-token") {
     const refreshData = await refreshAccessToken();
@@ -110,16 +144,25 @@ export async function apiFetch(path, options = {}) {
           headers: retryHeaders,
           ...options,
         });
-      } catch {
-        throw new Error("Backend server connect nahi ho raha. Please backend start karein: npm run dev in backend folder.");
+      } catch (error) {
+        throw new ApiNetworkError(NETWORK_ERROR_MESSAGE, error);
       }
-      data = await response.json().catch(() => ({}));
+      data = await readResponseBody(response);
     }
   }
 
-  if (!response.ok) {
-    throw new Error(data.message || "Request failed");
+  if (response.status === 401 && session?.token && !session?.refreshToken && !path.startsWith("/auth/")) {
+    clearSession();
   }
+
+  if (!response.ok) {
+    throw new Error(errorMessageFromResponse(response, data));
+  }
+  if (data?.success === false && data?.code === "SERVICE_UNAVAILABLE") {
+    setBackendOffline(true);
+    throw new ApiNetworkError(data.message || NETWORK_ERROR_MESSAGE);
+  }
+  setBackendOffline(false);
   return data;
 }
 
@@ -138,10 +181,10 @@ export async function apiUpload(path, formData, options = {}) {
       body: formData,
       ...options,
     });
-  } catch {
-    throw new Error("Backend server connect nahi ho raha. Please backend start karein: npm run dev in backend folder.");
+  } catch (error) {
+    throw new ApiNetworkError(NETWORK_ERROR_MESSAGE, error);
   }
-  let data = await response.json().catch(() => ({}));
+  let data = await readResponseBody(response);
 
   if (response.status === 401 && session?.refreshToken && path !== "/auth/refresh-token") {
     const refreshData = await refreshAccessToken();
@@ -158,16 +201,21 @@ export async function apiUpload(path, formData, options = {}) {
           body: formData,
           ...options,
         });
-      } catch {
-        throw new Error("Backend server connect nahi ho raha. Please backend start karein: npm run dev in backend folder.");
+      } catch (error) {
+        throw new ApiNetworkError(NETWORK_ERROR_MESSAGE, error);
       }
-      data = await response.json().catch(() => ({}));
+      data = await readResponseBody(response);
     }
   }
 
   if (!response.ok) {
-    throw new Error(data.message || "Upload failed");
+    throw new Error(errorMessageFromResponse(response, data, "Upload failed"));
   }
+  if (data?.success === false && data?.code === "SERVICE_UNAVAILABLE") {
+    setBackendOffline(true);
+    throw new ApiNetworkError(data.message || NETWORK_ERROR_MESSAGE);
+  }
+  setBackendOffline(false);
   return data;
 }
 

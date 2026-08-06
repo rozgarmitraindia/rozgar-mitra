@@ -148,6 +148,28 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
     }
   }
 
+  async function deleteNotification(target = selected) {
+    if (!target?._id || moduleKey !== "notifications") return;
+    if (!window.confirm(`Permanently delete notification "${target.title || "Notification"}"?`)) return;
+
+    setDeleting(true);
+    setError("");
+    try {
+      const result = await adminFetch(`/admin/notifications/${target._id}`, { method: "DELETE" });
+      if (selected?._id === target._id) {
+        setSelected(null);
+        setActivity([]);
+      }
+      await load(pagination.page);
+      toast.show(result.message || "Notification permanently deleted", "success");
+    } catch (err) {
+      setError(err.message);
+      toast.show(err.message || "Unable to delete notification", "error");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   useEffect(() => {
     load(pagination.page);
   }, [moduleKey, status, refreshToken]);
@@ -193,21 +215,23 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
                 <th>ID</th>
                 <th>Name / Title</th>
                 <th>Email / Company</th>
+                {moduleKey === "rooms" ? <th>Room Owner ID</th> : null}
                 <th>Meta</th>
                 <th>Status</th>
                 <th>Created</th>
-                {moduleKey === "jobs" ? <th>Actions</th> : null}
+                {moduleKey === "jobs" || moduleKey === "notifications" ? <th>Actions</th> : null}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={moduleKey === "jobs" ? 7 : 6}><div className="admin-table-state"><span className="loading-spinner" />Loading records...</div></td></tr>
+                <tr><td colSpan={(moduleKey === "jobs" || moduleKey === "notifications" ? 7 : 6) + (moduleKey === "rooms" ? 1 : 0)}><div className="admin-table-state"><span className="loading-spinner" />Loading records...</div></td></tr>
               ) : null}
               {!loading && items.map((item) => (
                 <tr key={item._id} className={selected?._id === item._id ? "active" : ""} onClick={() => openDetails(item)}>
                   <td>{item.immutableId || item.postId || item.roomId || item._id?.slice(-8)}</td>
                   <td>{pickName(item, moduleKey)}</td>
                   <td>{pickEmail(item, moduleKey)}</td>
+                  {moduleKey === "rooms" ? <td>{item.ownerPublicId || item.immutableOwnerId || item.owner?.immutableId || item.owner?._id || "-"}</td> : null}
                   <td>{pickMeta(item, moduleKey)}</td>
                   <td><StatusPill status={item.status} /></td>
                   <td>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "-"}</td>
@@ -220,9 +244,16 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
                       ) : <span className="section-desc">-</span>}
                     </td>
                   ) : null}
+                  {moduleKey === "notifications" ? (
+                    <td>
+                      <button className="btn-danger admin-row-delete" type="button" disabled={deleting} onClick={(event) => { event.stopPropagation(); deleteNotification(item); }}>
+                        {deleting ? "Deleting..." : "Delete"}
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
-              {!items.length && !loading ? <tr><td colSpan={moduleKey === "jobs" ? 7 : 6}><div className="admin-table-state"><strong>No records found</strong><span>Try a different status filter or search keyword.</span></div></td></tr> : null}
+              {!items.length && !loading ? <tr><td colSpan={(moduleKey === "jobs" || moduleKey === "notifications" ? 7 : 6) + (moduleKey === "rooms" ? 1 : 0)}><div className="admin-table-state"><strong>No records found</strong><span>Try a different status filter or search keyword.</span></div></td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -232,7 +263,7 @@ export default function ListModule({ moduleKey, refreshToken = 0 }) {
           <button className="btn-secondary" type="button" disabled={pagination.page >= pagination.pages} onClick={() => load(pagination.page + 1)}>Next</button>
         </div>
       </section>
-      <DetailPanel moduleKey={moduleKey} detail={selected} activity={activity} onClose={() => setSelected(null)} onStatus={updateStatus} statusLoading={updatingStatus} onDelete={() => deleteJob()} onDeleteAccount={() => deleteAccount()} deleteLoading={deleting} />
+      <DetailPanel moduleKey={moduleKey} detail={selected} activity={activity} onClose={() => setSelected(null)} onStatus={updateStatus} statusLoading={updatingStatus} onDelete={() => deleteJob()} onDeleteAccount={() => deleteAccount()} onDeleteNotification={() => deleteNotification()} deleteLoading={deleting} />
     </div>
   );
 }

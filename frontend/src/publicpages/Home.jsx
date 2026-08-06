@@ -65,8 +65,11 @@ export default function Home() {
         if (cancelled) return;
         setJobs(liveJobs);
         setRooms(liveRooms);
-      } catch (err) {
-        console.error("Failed to load live jobs/rooms", err);
+      } catch {
+        if (!cancelled) {
+          setJobs([]);
+          setRooms([]);
+        }
       } finally {
         if (!cancelled && !background) setLoadingLive(false);
       }
@@ -74,12 +77,10 @@ export default function Home() {
 
     loadLiveData();
     const refresh = () => loadLiveData(true);
-    const interval = window.setInterval(refresh, 5000);
     window.addEventListener("focus", refresh);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
       window.removeEventListener("focus", refresh);
     };
   }, []);

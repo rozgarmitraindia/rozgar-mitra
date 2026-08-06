@@ -27,7 +27,7 @@ export const statusOptions = {
   "room-owners": ["pending", "verified", "rejected", "suspended", "unverified"],
   jobs: ["pending", "live", "rejected"],
   rooms: ["pending", "live", "rejected"],
-  applications: ["submitted", "shortlisted", "interview", "hired", "rejected"],
+  applications: ["submitted", "shortlisted", "interview", "hired", "terminated", "rejected"],
   bookings: ["pending", "confirmed", "completed", "cancelled", "rejected"],
   complaints: ["open", "inReview", "resolved", "rejected"],
   notifications: ["draft", "sent", "failed", "read", "unread"],

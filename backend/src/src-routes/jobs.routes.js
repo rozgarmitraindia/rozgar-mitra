@@ -8,6 +8,21 @@ import { asyncHandler, sendError, sendSuccess } from "../utils/apiResponse.js";
 
 export const jobsRouter = Router();
 
+function normalizeDocument(doc, fallbackType = "document") {
+  if (!doc) return null;
+  const source = typeof doc.toObject === "function" ? doc.toObject() : doc;
+  if (!source.url) return null;
+  return {
+    type: source.type || fallbackType,
+    url: source.url,
+    publicId: source.publicId,
+    resourceType: source.resourceType,
+    format: source.format,
+    originalName: source.originalName,
+    mimeType: source.mimeType,
+  };
+}
+
 jobsRouter.get("/", optionalAuth, async (req, res) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   const search = req.query.search ? new RegExp(req.query.search, "i") : null;
@@ -56,20 +71,11 @@ jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyn
   }
   const existing = await Application.findOne({ job: job._id, candidate: req.user._id });
   if (existing) return sendError(res, { statusCode: 409, code: "DUPLICATE_APPLICATION", message: "You have already applied to this job" });
-  const candidateDocuments = (req.user.documents || []).map((doc) => {
-    const source = typeof doc.toObject === "function" ? doc.toObject() : doc;
-    return {
-      type: source.type,
-      url: source.url,
-      publicId: source.publicId,
-      resourceType: source.resourceType,
-      format: source.format,
-      originalName: source.originalName,
-      mimeType: source.mimeType,
-    };
-  }).filter((doc) => doc.url);
+  const candidateDocuments = (req.user.documents || []).map((doc) => normalizeDocument(doc)).filter(Boolean);
   const governmentId = candidateDocuments.find((doc) => ["government-id", "govt-id", "aadhaar", "document"].includes(String(doc.type || "").toLowerCase()));
-  const governmentIdUrl = req.body.governmentIdUrl || governmentId?.url;
+  const governmentIdDocument = normalizeDocument(req.body.governmentIdDocument, "government-id") || governmentId;
+  const resumeDocument = normalizeDocument(req.body.resumeDocument, "resume") || normalizeDocument(req.user.resume, "resume");
+  const governmentIdUrl = req.body.governmentIdUrl || governmentIdDocument?.url;
   if (!governmentIdUrl) {
     return sendError(res, {
       statusCode: 400,
@@ -85,8 +91,11 @@ jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyn
       employer: job.employer,
       aadhaarUrl: req.body.aadhaarUrl,
       governmentIdUrl,
+      governmentIdDocument,
       candidateDocuments,
-      candidateResumeUrl: req.user.resume?.url || "",
+      applicationDocuments: [governmentIdDocument, resumeDocument].filter(Boolean),
+      candidateResumeUrl: req.body.resumeUrl || resumeDocument?.url || "",
+      candidateResumeDocument: resumeDocument,
       candidateProfilePhotoUrl: req.user.profilePhoto?.url || "",
     });
     try {

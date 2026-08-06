@@ -19,6 +19,7 @@ const RoomOwnerDashboard = lazy(() => import("./pages/roomOwner/Dashboard.jsx"))
 const RoomOwnerRooms = lazy(() => import("./pages/roomOwner/Rooms.jsx"));
 const RoomOwnerVisitRequests = lazy(() => import("./pages/roomOwner/VisitRequests.jsx"));
 const RoomOwnerBookings = lazy(() => import("./pages/roomOwner/Bookings.jsx"));
+const RoomOwnerNotifications = lazy(() => import("./pages/roomOwner/Notifications.jsx"));
 const RoomOwnerProfile = lazy(() => import("./pages/roomOwner/Profile.jsx"));
 const RoomOwnerSettings = lazy(() => import("./pages/roomOwner/Settings.jsx"));
 import About from "./publicpages/About.jsx";
@@ -98,8 +99,10 @@ export default function App() {
                   <Route path="/employer/settings" element={protectedRoleLayout("employer", <EmployerSettings />)} />
                   <Route path="/room-owner/dashboard" element={protectedRoleLayout("roomOwner", <RoomOwnerDashboard />)} />
                   <Route path="/room-owner/rooms" element={protectedRoleLayout("roomOwner", <RoomOwnerRooms />)} />
+                  <Route path="/app/owner" element={protectedRoleLayout("roomOwner", <RoomOwnerRooms />)} />
                   <Route path="/room-owner/visit-requests" element={protectedRoleLayout("roomOwner", <RoomOwnerVisitRequests />)} />
                   <Route path="/room-owner/bookings" element={protectedRoleLayout("roomOwner", <RoomOwnerBookings />)} />
+                  <Route path="/room-owner/notifications" element={protectedRoleLayout("roomOwner", <RoomOwnerNotifications />)} />
                   <Route path="/room-owner/profile" element={protectedRoleLayout("roomOwner", <RoomOwnerProfile />)} />
                   <Route path="/room-owner/settings" element={protectedRoleLayout("roomOwner", <RoomOwnerSettings />)} />
                   <Route path="/admin" element={<ProtectedRole role="admin"><AdminPanel /></ProtectedRole>} />

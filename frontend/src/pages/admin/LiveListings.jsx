@@ -31,6 +31,11 @@ const roomFields = [
   ["description", "Description", "textarea"],
 ];
 
+function ownerIdFor(item, type) {
+  if (type === "jobs") return item.employerPublicId || item.immutableEmployerId || item.employer?.immutableId || item.employer?._id || "-";
+  return item.ownerPublicId || item.immutableOwnerId || item.owner?.immutableId || item.owner?._id || "-";
+}
+
 export default function LiveListings() {
   const toast = useToast();
   const [active, setActive] = useState("jobs");
@@ -141,6 +146,7 @@ export default function LiveListings() {
               <p>{active === "jobs" ? item.companyName || item.employer?.companyName : item.propertyName || item.owner?.propertyName}</p>
             </div>
             <dl>
+              <div><dt>{active === "jobs" ? "Employer ID" : "Room Owner ID"}</dt><dd>{ownerIdFor(item, active)}</dd></div>
               <div><dt>{active === "jobs" ? "Salary" : "Rent"}</dt><dd>{active === "jobs" ? item.salary || "-" : item.rent || "-"}</dd></div>
               <div><dt>Location</dt><dd>{item.address || item.companyLocation || "-"}</dd></div>
               <div><dt>Contact</dt><dd>{item.contactNumber || item.companyPhone || "-"}</dd></div>

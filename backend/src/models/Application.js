@@ -16,12 +16,16 @@ const applicationSchema = new mongoose.Schema({
   employer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   aadhaarUrl: String,
   governmentIdUrl: String,
+  governmentIdDocument: documentSnapshotSchema,
   candidateDocuments: [documentSnapshotSchema],
+  applicationDocuments: [documentSnapshotSchema],
   candidateResumeUrl: String,
+  candidateResumeDocument: documentSnapshotSchema,
   candidateProfilePhotoUrl: String,
-  status: { type: String, enum: ["submitted", "shortlisted", "interview", "hired", "rejected"], default: "submitted" },
+  status: { type: String, enum: ["submitted", "shortlisted", "interview", "hired", "terminated", "rejected"], default: "submitted" },
   interview: {
     mode: String,
+    hrName: String,
     meetingUrl: String,
     mapLink: String,
     locationAddress: String,
@@ -29,11 +33,15 @@ const applicationSchema = new mongoose.Schema({
     time: String,
     supportContact: String,
   },
+  interviewReminderSentAt: Date,
   offer: {
     offeredSalary: String,
     joiningDate: String,
     offerNote: String,
   },
+  hiredAt: Date,
+  terminatedAt: Date,
+  terminationReason: String,
   rejectionReason: String,
 }, { timestamps: true });
 

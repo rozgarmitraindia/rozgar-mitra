@@ -1,21 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import {
-  Bell,
-  Briefcase,
-  ChevronDown,
-  Home,
-  Languages,
-  LogOut,
-  Menu,
-  PlusCircle,
-  UserRound,
-  X,
-} from "lucide-react";
+import { Bell, Briefcase, ChevronDown, Home, Languages, LogOut, Menu, PlusCircle, UserRound, X } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext.jsx";
 import { useToast } from "../contexts/ToastContext.jsx";
 import { clearSession, getSession } from "../utils/auth.js";
-import { fetchUnreadCount, subscribeNotifications } from "../utils/notification.js";
+import { fetchUnreadCount, onNotificationCountChange, subscribeNotifications } from "../utils/notification.js";
 import { cn } from "../lib/utils.js";
 import { Button } from "./ui/button.jsx";
 
@@ -58,9 +47,7 @@ const profileLinks = {
     { label: "Profile", path: "/room-owner/profile" },
     { label: "Settings", path: "/room-owner/settings" },
   ],
-  admin: [
-    { label: "Admin Panel", path: "/admin" },
-  ],
+  admin: [{ label: "Admin Panel", path: "/admin" }],
 };
 
 function getDisplayName(session) {
@@ -98,6 +85,17 @@ function HeaderLink({ item, label, onClick }) {
       {Icon ? <Icon className="size-4" /> : null}
       {label}
     </NavLink>
+  );
+}
+
+function ProfileLinkButton({ link, unreadCount, onClick }) {
+  return (
+    <button type="button" className="rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground" onClick={() => onClick(link.path)}>
+      <span className="inline-flex w-full items-center justify-between gap-3">
+        <span>{link.label}</span>
+        {link.label === "Notifications" && unreadCount > 0 ? <span className="size-2 rounded-full bg-destructive" aria-label={`${unreadCount} unread notifications`} /> : null}
+      </span>
+    </button>
   );
 }
 
@@ -139,8 +137,8 @@ export default function Navbar() {
       }
       try {
         setUnreadCount((await fetchUnreadCount()) || 0);
-      } catch (err) {
-        console.error("Unable to load unread notifications", err);
+      } catch {
+        setUnreadCount(0);
       }
     }
     loadUnreadCount();
@@ -152,6 +150,21 @@ export default function Navbar() {
     }
     return cleanup;
   }, [loggedIn, toast]);
+
+  useEffect(() => {
+    if (!loggedIn) return undefined;
+    return onNotificationCountChange(async (nextCount) => {
+      if (typeof nextCount === "number") {
+        setUnreadCount(Math.max(nextCount, 0));
+        return;
+      }
+      try {
+        setUnreadCount((await fetchUnreadCount()) || 0);
+      } catch {
+        setUnreadCount(0);
+      }
+    });
+  }, [loggedIn]);
 
   function handleLogout() {
     clearSession();
@@ -207,11 +220,7 @@ export default function Navbar() {
                     <span className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground"><UserRound className="size-3.5" />{getRoleLabel(role)}</span>
                   </div>
                   <div className="mt-2 grid gap-1">
-                    {(profileLinks[role] || []).map((link) => (
-                      <button key={link.path} type="button" className="rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground" onClick={() => go(link.path)}>
-                        {link.label}
-                      </button>
-                    ))}
+                    {(profileLinks[role] || []).map((link) => <ProfileLinkButton key={link.path} link={link} unreadCount={unreadCount} onClick={go} />)}
                     <button type="button" className="mt-1 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-destructive transition hover:bg-destructive/10" onClick={handleLogout}>
                       <LogOut className="size-4" />
                       Logout
@@ -247,11 +256,7 @@ export default function Navbar() {
                   </span>
                 </div>
                 <div className="grid gap-1">
-                  {(profileLinks[role] || []).map((link) => (
-                    <button key={link.path} type="button" className="rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground" onClick={() => go(link.path)}>
-                      {link.label}
-                    </button>
-                  ))}
+                  {(profileLinks[role] || []).map((link) => <ProfileLinkButton key={link.path} link={link} unreadCount={unreadCount} onClick={go} />)}
                   <button type="button" className="rounded-lg px-3 py-2 text-left text-sm font-semibold text-destructive hover:bg-destructive/10" onClick={handleLogout}>Logout</button>
                 </div>
               </div>

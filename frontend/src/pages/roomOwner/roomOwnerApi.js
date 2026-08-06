@@ -1,27 +1,69 @@
-import { apiFetch } from "../../utils/auth.js";
+import { apiFetch, isNetworkError } from "../../utils/auth.js";
 
 export async function fetchRoomOwnerSummary() {
-  const result = await apiFetch("/employer/summary");
-  return result.data || {};
+  try {
+    const result = await apiFetch("/employer/summary");
+    return result.data || {};
+  } catch (error) {
+    if (isNetworkError(error)) return {};
+    throw error;
+  }
 }
 
 export async function fetchRoomOwnerRooms() {
-  const result = await apiFetch("/employer/rooms");
-  return result.data?.items || [];
+  try {
+    const result = await apiFetch("/employer/rooms");
+    return result.data?.items || [];
+  } catch (error) {
+    if (isNetworkError(error)) return [];
+    throw error;
+  }
+}
+
+export async function closeRoomOwnerRoom(roomId, reason = "Closed by owner") {
+  return apiFetch(`/employer/rooms/${roomId}/close`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function duplicateRoomOwnerRoom(roomId) {
+  return apiFetch(`/employer/rooms/${roomId}/duplicate`, { method: "POST" });
+}
+
+export async function deleteRoomOwnerRoom(roomId) {
+  return apiFetch(`/employer/rooms/${roomId}`, { method: "DELETE" });
 }
 
 export async function fetchRoomOwnerVisitRequests() {
-  const result = await apiFetch("/employer/visit-requests");
-  return result.data?.items || [];
+  try {
+    const result = await apiFetch("/employer/visit-requests");
+    return result.data?.items || [];
+  } catch (error) {
+    if (isNetworkError(error)) return [];
+    throw error;
+  }
 }
 
 export async function fetchRoomOwnerBookings() {
-  const result = await apiFetch("/employer/bookings");
-  return result.data?.items || [];
+  try {
+    const result = await apiFetch("/employer/bookings");
+    return result.data?.items || [];
+  } catch (error) {
+    if (isNetworkError(error)) return [];
+    throw error;
+  }
 }
 
 export async function respondToVisitRequest(requestId, payload = {}) {
   return apiFetch(`/employer/visit-requests/${requestId}/respond`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmRoomBooking(bookingId, payload = {}) {
+  return apiFetch(`/employer/bookings/${bookingId}/confirm`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

@@ -1,15 +1,25 @@
-import { apiFetch, apiUpload } from "../../utils/auth.js";
+import { apiFetch, apiUpload, isNetworkError } from "../../utils/auth.js";
 
 export async function fetchJobs(search = "") {
-  const path = search ? `/jobs?search=${encodeURIComponent(search)}` : "/jobs";
-  const result = await apiFetch(path);
-  return result.data?.items || result.items || [];
+  try {
+    const path = search ? `/jobs?search=${encodeURIComponent(search)}` : "/jobs";
+    const result = await apiFetch(path);
+    return result.data?.items || result.items || [];
+  } catch (error) {
+    if (isNetworkError(error)) return [];
+    throw error;
+  }
 }
 
 export async function fetchRooms(search = "") {
-  const path = search ? `/rooms?search=${encodeURIComponent(search)}` : "/rooms";
-  const result = await apiFetch(path);
-  return result.data?.items || result.items || [];
+  try {
+    const path = search ? `/rooms?search=${encodeURIComponent(search)}` : "/rooms";
+    const result = await apiFetch(path);
+    return result.data?.items || result.items || [];
+  } catch (error) {
+    if (isNetworkError(error)) return [];
+    throw error;
+  }
 }
 
 export async function fetchSavedJobs() {
@@ -72,5 +82,12 @@ export async function uploadGovernmentId(file) {
   form.append("file", file);
   form.append("type", "government-id");
   const result = await apiUpload("/upload/documents", form);
+  return result.data?.document;
+}
+
+export async function uploadResume(file) {
+  const form = new FormData();
+  form.append("file", file);
+  const result = await apiUpload("/upload/resume", form);
   return result.data?.document;
 }

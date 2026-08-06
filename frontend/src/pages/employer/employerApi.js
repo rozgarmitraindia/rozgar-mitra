@@ -40,6 +40,13 @@ export async function hireApplicant(applicationId, payload = {}) {
   });
 }
 
+export async function fireApplicant(applicationId, payload = {}) {
+  return apiFetch(`/employer/applications/${applicationId}/fire`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function rejectApplicant(applicationId, payload = {}) {
   return apiFetch(`/employer/applications/${applicationId}/reject`, {
     method: "POST",

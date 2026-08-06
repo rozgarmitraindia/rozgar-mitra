@@ -115,3 +115,267 @@
   background-size: 56px 56px;
   mask-image: radial-gradient(ellipse at top, var(--foreground), transparent 72%);
 }
+
+@layer components {
+  .section {
+    @apply mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:py-10;
+  }
+
+  .section-header {
+    @apply mesh-bg mb-6 grid gap-4 rounded-3xl border border-border bg-card p-5 shadow-float sm:p-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end;
+  }
+
+  .section-label {
+    @apply inline-flex w-fit items-center rounded-full border border-border bg-card px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-signal;
+  }
+
+  .section-title {
+    @apply mt-3 font-display text-3xl font-extrabold leading-tight text-foreground sm:text-4xl;
+  }
+
+  .section-desc,
+  .detail-desc {
+    @apply text-sm leading-6 text-muted-foreground;
+  }
+
+  .form-card {
+    @apply rounded-3xl border border-border bg-card p-5 shadow-float sm:p-7;
+  }
+
+  .form-title {
+    @apply font-display text-xl font-bold text-foreground;
+  }
+
+  .form-group {
+    @apply grid gap-2;
+  }
+
+  .form-label {
+    @apply text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground;
+  }
+
+  .form-input {
+    @apply min-h-11 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-signal;
+  }
+
+  textarea.form-input {
+    @apply min-h-28;
+  }
+
+  .btn-primary,
+  .btn-search {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-gradient-signal px-4 py-2 text-sm font-extrabold text-signal-foreground shadow-float transition hover:-translate-y-0.5 hover:shadow-lift disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-extrabold text-foreground transition hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-2 text-sm font-extrabold text-destructive transition hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .dashboard-grid {
+    @apply grid gap-4 sm:grid-cols-2 xl:grid-cols-3;
+  }
+
+  .dashboard-main-grid {
+    @apply mt-6 lg:grid-cols-[1.1fr_0.9fr];
+  }
+
+  .dashboard-card {
+    @apply rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift;
+  }
+
+  .dashboard-card-small span {
+    @apply text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground;
+  }
+
+  .dashboard-card-small strong {
+    @apply mt-3 block font-display text-4xl font-extrabold text-foreground;
+  }
+
+  .quick-actions {
+    @apply mt-4 flex flex-wrap gap-3;
+  }
+
+  .admin-table-wrap {
+    @apply overflow-hidden rounded-3xl border border-border bg-card shadow-float;
+  }
+
+  .admin-table {
+    @apply min-w-full border-collapse text-left text-sm;
+  }
+
+  .admin-table thead {
+    @apply bg-surface;
+  }
+
+  .admin-table th {
+    @apply whitespace-nowrap border-b border-border px-4 py-3 text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground;
+  }
+
+  .admin-table td {
+    @apply border-b border-border px-4 py-4 align-top text-sm text-foreground;
+  }
+
+  .admin-table tbody tr {
+    @apply transition hover:bg-surface;
+  }
+
+  .admin-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .login-error {
+    @apply mb-4 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-bold text-destructive;
+  }
+
+  .login-success {
+    @apply mb-4 rounded-2xl border border-verified/25 bg-verified/10 p-4 text-sm font-bold text-foreground;
+  }
+
+  .role-shell {
+    @apply mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6;
+  }
+
+  .role-header-row {
+    @apply mesh-bg mb-5 grid gap-4 rounded-3xl border border-border bg-card p-5 shadow-float sm:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center;
+  }
+
+  .breadcrumbs {
+    @apply mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-muted-foreground;
+  }
+
+  .breadcrumb-item {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .breadcrumb-link {
+    @apply hover:text-signal;
+  }
+
+  .breadcrumb-separator {
+    @apply text-border;
+  }
+
+  .role-layout {
+    @apply grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)];
+  }
+
+  .role-sidebar {
+    @apply h-fit rounded-3xl border border-border bg-card p-4 shadow-float lg:sticky lg:top-24;
+  }
+
+  .role-sidebar-title {
+    @apply mb-4 rounded-2xl bg-gradient-ink p-4 font-display text-xl font-extrabold text-background;
+  }
+
+  .role-nav-link {
+    @apply mt-2 flex min-h-11 items-center rounded-xl px-4 py-2 text-sm font-extrabold text-muted-foreground transition hover:bg-accent hover:text-accent-foreground;
+  }
+
+  .role-nav-link.active {
+    @apply bg-gradient-signal text-signal-foreground shadow-float;
+  }
+
+  .role-main {
+    @apply min-w-0 rounded-3xl border border-border bg-surface/60 pb-6;
+  }
+
+  .role-sidebar-toggle {
+    @apply inline-flex min-h-10 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-extrabold lg:hidden;
+  }
+
+  .role-sidebar-backdrop {
+    @apply fixed inset-0 z-40 bg-foreground/30 lg:hidden;
+  }
+
+  .profile-grid {
+    @apply grid gap-5 lg:grid-cols-[0.9fr_1.1fr];
+  }
+
+  .profile-card {
+    @apply rounded-2xl border border-border bg-surface p-5;
+  }
+
+  .detail-list {
+    @apply grid gap-3 text-sm;
+  }
+
+  .detail-list p {
+    @apply rounded-xl border border-border bg-card p-3;
+  }
+
+  .document-modal {
+    @apply fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-foreground/55 p-4 backdrop-blur-sm;
+  }
+
+  .document-modal-card {
+    @apply w-full max-w-5xl rounded-3xl border border-border bg-card p-5 shadow-lift sm:p-7;
+  }
+
+  .document-modal-head {
+    @apply mb-5 flex items-start justify-between gap-4 border-b border-border pb-4;
+  }
+
+  .document-modal-head strong {
+    @apply block font-display text-xl font-bold;
+  }
+
+  .document-modal-head span {
+    @apply mt-1 block text-sm text-muted-foreground;
+  }
+
+  .document-close {
+    @apply grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-card text-foreground transition hover:bg-accent;
+  }
+
+  .admin-edit-grid {
+    @apply grid gap-4 sm:grid-cols-2;
+  }
+
+  .admin-edit-wide {
+    @apply sm:col-span-2;
+  }
+
+  .admin-section-title {
+    @apply mt-7 border-t border-border pt-5;
+  }
+
+  .admin-doc-grid {
+    @apply mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .admin-doc {
+    @apply flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 text-sm transition hover:-translate-y-0.5 hover:bg-accent;
+  }
+
+  .admin-doc-icon {
+    @apply grid size-10 shrink-0 place-items-center rounded-xl bg-gradient-signal text-[10px] font-extrabold text-signal-foreground;
+  }
+
+  @media (max-width: 900px) {
+    .admin-table-wrap {
+      @apply overflow-x-auto;
+    }
+
+    .admin-table {
+      min-width: 860px;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .role-sidebar {
+      @apply fixed left-4 right-4 top-24 z-50 hidden max-h-[calc(100vh-7rem)] overflow-y-auto;
+    }
+
+    .role-sidebar.open {
+      @apply block;
+    }
+
+    .role-main {
+      @apply rounded-2xl;
+    }
+  }
+}

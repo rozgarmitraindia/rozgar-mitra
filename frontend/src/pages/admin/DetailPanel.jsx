@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Download, ExternalLink, FileText, ImageIcon, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ExternalLink, FileText, ImageIcon, X } from "lucide-react";
 import { moduleTitles, pickName, pickEmail, statusOptions } from "./adminApi.js";
 
 function ValueRow({ label, value }) {
@@ -22,13 +23,67 @@ function StatusPill({ status }) {
   return <span className="status-pill" style={{ background: color[0], color: color[1] }}>{status || "pending"}</span>;
 }
 
+function getUrl(doc) {
+  return typeof doc === "string" ? doc : doc?.url;
+}
+
+function compactDocs(entries) {
+  const seen = new Set();
+  return entries.filter(([, doc]) => {
+    const url = getUrl(doc);
+    if (!url || seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  });
+}
+
+const documentTitleMap = {
+  profile: "Profile Photo",
+  resume: "Resume",
+  "government-id": "Government ID",
+  "company-logo": "Company Logo",
+  "company-document": "Company Verification Document",
+  "property-document": "Property Document",
+  "hotel-front-photo": "Hotel/PG Front Photo",
+  "hotel-side-view-photo": "Hotel/PG Side View Photo",
+  "local-trade-license": "लोकल ट्रेड लाइसेंस",
+  "owner-aadhaar-card": "मालिक का आधार कार्ड",
+  "owner-pan-card": "पैन कार्ड",
+  "room-photo": "Room Photo",
+};
+
+function prettifyDocumentType(type) {
+  return String(type || "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .trim();
+}
+
+function getDocumentTitle(doc, fallback) {
+  if (typeof doc === "string") return fallback;
+  const type = doc?.type;
+  return doc?.label || documentTitleMap[type] || prettifyDocumentType(type) || doc?.originalName || fallback;
+}
+
+function candidateAge(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const date = new Date(dateOfBirth);
+  if (Number.isNaN(date.valueOf())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  if (today.getMonth() < date.getMonth() || (today.getMonth() === date.getMonth() && today.getDate() < date.getDate())) age -= 1;
+  return age >= 0 ? `${age} years` : null;
+}
+
 function DocumentPreview({ title, doc }) {
   const [open, setOpen] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
   const url = typeof doc === "string" ? doc : doc?.url;
   const type = String(doc?.type || title || "");
-  const isImage = /\.(png|jpg|jpeg|webp|gif)(\?.*)?$/i.test(url) || /profile|photo|logo|image/i.test(type);
-  const isPdf = /\.pdf(\?.*)?$/i.test(url) || /pdf|government|document|resume|id|aadhaar|proof/i.test(type);
+  const mimeType = String(doc?.mimeType || "");
+  const resourceType = String(doc?.resourceType || "");
+  const isImage = /^image\//i.test(mimeType) || /\.(png|jpg|jpeg|webp|gif)(\?.*)?$/i.test(url) || /profile|photo|logo|image/i.test(type);
+  const isPdf = /pdf/i.test(mimeType) || /\.pdf(\?.*)?$/i.test(url) || /pdf|government|document|resume|id|aadhaar|proof|license|pan/i.test(type) || resourceType === "raw";
   const isBlockedCloudinaryPdf = Boolean(url && /res\.cloudinary\.com\/.+\/image\/upload\/.+\.pdf/i.test(url));
   const [blobPreviewUrl, setBlobPreviewUrl] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -70,6 +125,49 @@ function DocumentPreview({ title, doc }) {
     setOpen(true);
   }
 
+  const modal = open ? (
+    <div className="document-modal document-preview-modal" role="dialog" aria-modal="true" aria-label={`${title} preview`} onMouseDown={() => setOpen(false)}>
+      <div className="document-modal-card" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="document-modal-head">
+          <div>
+            <strong>{title}</strong>
+            <span>{isPdf ? "PDF/document preview" : "Document preview"}</span>
+          </div>
+          <div>
+            {!isBlockedCloudinaryPdf ? (
+              <a href={url} target="_blank" rel="noreferrer" className="btn-secondary">Open original <ExternalLink size={15} /></a>
+            ) : null}
+            <button className="document-close" type="button" onClick={() => setOpen(false)} aria-label="Close preview"><X size={20} /></button>
+          </div>
+        </div>
+        {isBlockedCloudinaryPdf ? (
+          <div className="document-preview-fallback">
+            <FileText size={42} />
+            <h3>Re-upload required</h3>
+            <p>This PDF was uploaded with Cloudinary image delivery, which is blocked by Cloudinary security. New document uploads are fixed; ask the user to upload this document again.</p>
+          </div>
+        ) : previewLoading ? (
+          <div className="document-preview-fallback">
+            <span className="loading-spinner" />
+            <h3>Preparing preview</h3>
+            <p>Document ko secure preview ke liye load kiya ja raha hai.</p>
+          </div>
+        ) : previewFailed ? (
+          <div className="document-preview-fallback">
+            <FileText size={42} />
+            <h3>Preview could not load</h3>
+            <p>Browser PDF preview sometimes blocks Cloudinary raw documents. Open or download the file to review it.</p>
+            <a href={url} target="_blank" rel="noreferrer" className="btn-search">Open document <ExternalLink size={15} /></a>
+          </div>
+        ) : isImage ? (
+          <img className="document-modal-image" src={url} alt={title} onError={() => setPreviewFailed(true)} />
+        ) : (
+          <iframe className="document-modal-frame" src={previewUrl} title={title} onError={() => setPreviewFailed(true)} />
+        )}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <button className="admin-doc" type="button" onClick={openModal}>
@@ -77,68 +175,33 @@ function DocumentPreview({ title, doc }) {
         <b>{title}</b>
         <span>{isImage ? "View image" : "Preview / open"}</span>
       </button>
-      {open ? (
-        <div className="document-modal" role="dialog" aria-modal="true" aria-label={`${title} preview`} onMouseDown={() => setOpen(false)}>
-          <div className="document-modal-card" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="document-modal-head">
-              <div>
-                <strong>{title}</strong>
-                <span>{isPdf ? "PDF/document preview" : "Document preview"}</span>
-              </div>
-              <div>
-                {!isBlockedCloudinaryPdf ? (
-                  <>
-                    <a href={url} target="_blank" rel="noreferrer" className="btn-secondary">Open <ExternalLink size={15} /></a>
-                    <a href={url} download className="btn-secondary">Download <Download size={15} /></a>
-                  </>
-                ) : null}
-                <button className="document-close" type="button" onClick={() => setOpen(false)} aria-label="Close preview"><X size={20} /></button>
-              </div>
-            </div>
-            {isBlockedCloudinaryPdf ? (
-              <div className="document-preview-fallback">
-                <FileText size={42} />
-                <h3>Re-upload required</h3>
-                <p>This PDF was uploaded with Cloudinary image delivery, which is blocked by Cloudinary security. New document uploads are fixed; ask the user to upload this document again.</p>
-              </div>
-            ) : previewLoading ? (
-              <div className="document-preview-fallback">
-                <span className="loading-spinner" />
-                <h3>Preparing preview</h3>
-                <p>Document ko secure preview ke liye load kiya ja raha hai.</p>
-              </div>
-            ) : previewFailed ? (
-              <div className="document-preview-fallback">
-                <FileText size={42} />
-                <h3>Preview could not load</h3>
-                <p>Browser PDF preview sometimes blocks Cloudinary raw documents. Open or download the file to review it.</p>
-                <a href={url} target="_blank" rel="noreferrer" className="btn-search">Open document <ExternalLink size={15} /></a>
-              </div>
-            ) : isImage ? (
-              <img className="document-modal-image" src={url} alt={title} onError={() => setPreviewFailed(true)} />
-            ) : (
-              <iframe className="document-modal-frame" src={previewUrl} title={title} onError={() => setPreviewFailed(true)} />
-            )}
-          </div>
-        </div>
-      ) : null}
+      {modal ? createPortal(modal, document.body) : null}
     </>
   );
 }
 
-export default function DetailPanel({ moduleKey, detail, activity, onClose, onStatus, statusLoading = false, onDelete, onDeleteAccount, deleteLoading = false }) {
+export default function DetailPanel({ moduleKey, detail, activity, onClose, onStatus, statusLoading = false, onDelete, onDeleteAccount, onDeleteNotification, deleteLoading = false }) {
   const item = detail;
   if (!item) return null;
+  const candidate = item.candidate || item.user || {};
+  const candidateDocs = candidate.documents || [];
+  const applicationDocs = item.applicationDocuments || [];
+  const snapshotDocs = item.candidateDocuments || [];
+  const effectiveResume = item.candidateResumeDocument || item.candidateResumeUrl || candidate.resume || item.resume;
+  const effectiveGovernmentId = item.governmentIdDocument || item.governmentIdUrl || candidateDocs.find((doc) => /gov|aadhaar|id/i.test(doc.type || "")) || snapshotDocs.find((doc) => /gov|aadhaar|id/i.test(doc.type || "")) || item.documents?.find((doc) => /gov|aadhaar|id/i.test(doc.type || ""));
 
-  const docs = [
-    ["Profile Image", item.profilePhoto],
-    ["Resume", item.resume],
-    ["Government ID", item.documents?.find((doc) => /gov|aadhaar|id/i.test(doc.type || "")) || item.documents?.[0]],
-    ...(item.documents || []).map((doc, index) => [`Document ${index + 1}`, doc]),
-    ...(item.companyDocs || []).map((doc, index) => [`Company Doc ${index + 1}`, doc]),
-    ...(item.roomPhotos || []).map((doc, index) => [`Room Photo ${index + 1}`, doc]),
+  const docs = compactDocs([
+    ["Profile Image", item.profilePhoto || candidate.profilePhoto || item.candidateProfilePhotoUrl],
+    ["Resume", effectiveResume],
+    ["Government ID", effectiveGovernmentId],
+    ...applicationDocs.map((doc, index) => [`Application Document ${index + 1}`, doc]),
+    ...snapshotDocs.map((doc, index) => [`Candidate Snapshot ${index + 1}`, doc]),
+    ...candidateDocs.map((doc, index) => [`Candidate Profile Document ${index + 1}`, doc]),
+    ...(item.documents || []).map((doc, index) => [getDocumentTitle(doc, `Document ${index + 1}`), doc]),
+    ...(item.companyDocs || []).map((doc, index) => [getDocumentTitle(doc, `Company Doc ${index + 1}`), doc]),
+    ...(item.roomPhotos || []).map((doc, index) => [getDocumentTitle(doc, `Room Photo ${index + 1}`), doc]),
     ...(item.photos || []).map((url, index) => [`Room Photo ${index + 1}`, url]),
-  ];
+  ]);
 
   return (
     <aside className="admin-detail">
@@ -152,6 +215,50 @@ export default function DetailPanel({ moduleKey, detail, activity, onClose, onSt
 
       <div className="detail-list">
         <ValueRow label="ID" value={item.immutableId || item.postId || item.roomId || item._id} />
+        {moduleKey === "applications" || moduleKey === "bookings" ? (
+          <>
+            <ValueRow label={moduleKey === "bookings" ? "Booking / Visit ID" : "Form Submit ID"} value={item._id} />
+            <ValueRow label="Candidate ID" value={candidate.immutableId || candidate._id} />
+            <ValueRow label="Candidate Name" value={candidate.fullName} />
+            <ValueRow label="Candidate Email" value={candidate.email} />
+            <ValueRow label="Candidate Mobile" value={candidate.mobile} />
+            <ValueRow label="Candidate DOB" value={candidate.dateOfBirth ? new Date(candidate.dateOfBirth).toLocaleDateString("en-IN") : null} />
+            <ValueRow label="Candidate Age" value={candidateAge(candidate.dateOfBirth)} />
+            <ValueRow label="Candidate Gender" value={candidate.gender} />
+            <ValueRow label="Candidate Address" value={candidate.address} />
+            <ValueRow label="Candidate Pincode" value={candidate.pincode} />
+            <ValueRow label="Candidate Skills" value={candidate.skills} />
+            <ValueRow label="Candidate Experience" value={candidate.experience} />
+            <ValueRow label="Candidate Availability" value={candidate.availability} />
+            <ValueRow label="Candidate About" value={candidate.about} />
+            {moduleKey === "bookings" ? (
+              <>
+                <ValueRow label="Room" value={item.room?.title || item.room?.propertyName} />
+                <ValueRow label="Room ID" value={item.room?.publicId || item.room?.roomId || item.room?._id} />
+                <ValueRow label="Visit Status" value={item.visitStatus || item.status} />
+                <ValueRow label="Room Booked Status" value={item.bookingStatus || "notBooked"} />
+                <ValueRow label="Booked Occupancy" value={item.bookedOccupancy} />
+                <ValueRow label="Assigned Room / Bed" value={[item.assignedUnit, item.assignedBed].filter(Boolean).join(" / ")} />
+                <ValueRow label="Room Occupancy Left" value={item.room?.availableOccupancy} />
+                <ValueRow label="Visit Timing" value={[item.visitDate, item.visitTime].filter(Boolean).join(" · ")} />
+                <ValueRow label="Room Owner ID" value={item.owner?.immutableId || item.room?.immutableOwnerId || item.owner?._id} />
+                <ValueRow label="Room Owner" value={item.owner?.fullName || item.owner?.propertyName} />
+              </>
+            ) : null}
+          </>
+        ) : null}
+        {moduleKey === "rooms" ? (
+          <>
+            <ValueRow label="Room Owner ID" value={item.ownerPublicId || item.immutableOwnerId || item.owner?.immutableId || item.owner?._id} />
+            <ValueRow label="Room Owner Name" value={item.ownerName || item.owner?.fullName || item.owner?.propertyName} />
+            <ValueRow label="Room Owner Email" value={item.owner?.email} />
+            <ValueRow label="Room Owner Mobile" value={item.ownerPhone || item.owner?.mobile || item.owner?.companyPhone} />
+            <ValueRow label="Max Occupancy" value={item.maxOccupancy} />
+            <ValueRow label="Booked / Occupied" value={item.occupiedOccupancy} />
+            <ValueRow label="Available Occupancy" value={item.availableOccupancy} />
+            <ValueRow label="Occupancy Status" value={item.occupancyStatus} />
+          </>
+        ) : null}
         <ValueRow label="Status" value={<StatusPill status={item.status} />} />
         <ValueRow label="Email" value={pickEmail(item, moduleKey)} />
         <ValueRow label="Mobile" value={item.mobile || item.companyPhone || item.contactNumber} />
@@ -200,6 +307,11 @@ export default function DetailPanel({ moduleKey, detail, activity, onClose, onSt
         {moduleKey === 'jobs' ? (
           <button className="btn-danger" type="button" disabled={deleteLoading || statusLoading} onClick={onDelete}>
             {deleteLoading ? 'Deleting...' : 'Delete Job'}
+          </button>
+        ) : null}
+        {moduleKey === 'notifications' ? (
+          <button className="btn-danger" type="button" disabled={deleteLoading || statusLoading} onClick={onDeleteNotification}>
+            {deleteLoading ? 'Deleting...' : 'Delete Notification'}
           </button>
         ) : null}
         {['applications', 'bookings', 'complaints'].includes(moduleKey) ? (

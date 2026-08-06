@@ -29,6 +29,7 @@ const roleSidebars = {
     { label: "My Rooms", path: "/room-owner/rooms" },
     { label: "Visit Requests", path: "/room-owner/visit-requests" },
     { label: "Bookings", path: "/room-owner/bookings" },
+    { label: "Notifications", path: "/room-owner/notifications" },
     { label: "Profile", path: "/room-owner/profile" },
     { label: "Settings", path: "/room-owner/settings" },
   ],

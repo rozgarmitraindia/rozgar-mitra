@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarCheck2, CheckCircle2, FileText, RefreshCw, Users, X } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, Download, ExternalLink, FileText, ImageIcon, RefreshCw, Users, X } from "lucide-react";
 import { useToast } from "../../contexts/ToastContext.jsx";
-import { fetchEmployerApplications, hireApplicant, interviewApplicant, rejectApplicant, shortlistApplicant } from "./employerApi.js";
+import { fetchEmployerApplications, fireApplicant, hireApplicant, interviewApplicant, rejectApplicant, shortlistApplicant } from "./employerApi.js";
 import { Button } from "../../components/ui/button.jsx";
 import { cn } from "../../lib/utils.js";
 
-const statuses = ["all", "submitted", "shortlisted", "interview", "hired", "rejected"];
-const emptyInterview = { mode: "remote", date: "", time: "", meetingUrl: "", mapLink: "", locationAddress: "", supportContact: "" };
+const statuses = ["all", "submitted", "shortlisted", "interview", "hired", "terminated", "rejected"];
+const emptyInterview = { mode: "remote", hrName: "", date: "", time: "", meetingUrl: "", mapLink: "", locationAddress: "", supportContact: "" };
 
 function candidateAge(dateOfBirth) {
   if (!dateOfBirth) return "-";
@@ -14,6 +14,32 @@ function candidateAge(dateOfBirth) {
   let age = new Date().getFullYear() - date.getFullYear();
   if (new Date().getMonth() < date.getMonth() || (new Date().getMonth() === date.getMonth() && new Date().getDate() < date.getDate())) age -= 1;
   return `${age} years`;
+}
+
+function getDocUrl(doc) {
+  return typeof doc === "string" ? doc : doc?.url;
+}
+
+function isImageDocument(doc, label = "") {
+  const url = getDocUrl(doc) || "";
+  const mimeType = typeof doc === "string" ? "" : doc?.mimeType || "";
+  return mimeType.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif)(\?.*)?$/i.test(url) || /profile photo|image|logo/i.test(label);
+}
+
+function isPdfDocument(doc, label = "") {
+  const url = getDocUrl(doc) || "";
+  const mimeType = typeof doc === "string" ? "" : doc?.mimeType || "";
+  return mimeType === "application/pdf" || /\.pdf(\?.*)?$/i.test(url) || /pdf|government|document|resume|id|aadhaar|proof/i.test(label);
+}
+
+function mergeDocLinks(entries) {
+  const seen = new Set();
+  return entries.filter((item) => {
+    const url = getDocUrl(item.doc);
+    if (!url || seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  });
 }
 
 export default function EmployerApplications() {
@@ -69,6 +95,11 @@ export default function EmployerApplications() {
       let result;
       if (action === "shortlist") result = await shortlistApplicant(item._id);
       if (action === "hire") result = await hireApplicant(item._id, {});
+      if (action === "fire") {
+        const reason = window.prompt("Termination reason for candidate");
+        if (!reason?.trim()) return;
+        result = await fireApplicant(item._id, { reason: reason.trim() });
+      }
       if (action === "reject") {
         const reason = window.prompt("Professional rejection reason for candidate");
         if (!reason?.trim()) return;
@@ -158,8 +189,14 @@ export default function EmployerApplications() {
               {loading ? <tr><td className="px-4 py-6 text-muted-foreground" colSpan="7">Loading applicants...</td></tr> : null}
               {!loading && filtered.length ? filtered.map((item) => {
                 const busy = Boolean(actionLoading);
-                const closed = ["hired", "rejected"].includes(item.status);
-                const documents = item.candidate?.documents || item.candidateDocuments || [];
+                const closed = ["hired", "terminated", "rejected"].includes(item.status);
+                const documents = mergeDocLinks([
+                  { doc: item.governmentIdDocument || item.governmentIdUrl },
+                  { doc: item.candidateResumeDocument || item.candidateResumeUrl },
+                  ...(item.applicationDocuments || []).map((doc) => ({ doc })),
+                  ...(item.candidateDocuments || []).map((doc) => ({ doc })),
+                  ...((item.candidate?.documents || []).map((doc) => ({ doc }))),
+                ]);
                 return (
                   <tr key={item._id} className="border-t border-border">
                     <td className="px-4 py-4">
@@ -176,6 +213,7 @@ export default function EmployerApplications() {
                         <Button variant="outline" size="sm" disabled={busy || closed} onClick={() => doAction(item, "shortlist")}>Shortlist</Button>
                         <Button variant="signal" size="sm" disabled={busy || closed} onClick={() => openInterviewWindow(item)}>Interview</Button>
                         <Button variant="signal" size="sm" disabled={busy || closed} onClick={() => doAction(item, "hire")}>Hire</Button>
+                        {item.status === "hired" ? <Button variant="outline" size="sm" disabled={busy} onClick={() => doAction(item, "fire")}>Fire</Button> : null}
                         <Button variant="outline" size="sm" disabled={busy || closed} onClick={() => doAction(item, "reject")}>Reject</Button>
                       </div>
                     </td>
@@ -196,7 +234,15 @@ export default function EmployerApplications() {
 
 function CandidateModal({ item, onClose }) {
   const candidate = item.candidate || {};
-  const documents = candidate.documents?.length ? candidate.documents : item.candidateDocuments || [];
+  const documents = mergeDocLinks([
+    { label: "Profile Photo", doc: candidate.profilePhoto || item.candidateProfilePhotoUrl },
+    { label: "Profile Resume", doc: candidate.resume || item.candidateResumeUrl },
+    { label: "Application Government ID", doc: item.governmentIdDocument || item.governmentIdUrl },
+    { label: "Application Resume", doc: item.candidateResumeDocument || item.candidateResumeUrl },
+    ...(item.applicationDocuments || []).map((doc, index) => ({ label: doc.type || `Application Document ${index + 1}`, doc })),
+    ...(item.candidateDocuments || []).map((doc, index) => ({ label: doc.type || `Candidate Snapshot ${index + 1}`, doc })),
+    ...(candidate.documents || []).map((doc, index) => ({ label: doc.type || `Profile Document ${index + 1}`, doc })),
+  ]);
 
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-foreground/45 p-4" onMouseDown={onClose}>
@@ -211,10 +257,13 @@ function CandidateModal({ item, onClose }) {
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <Bio label="Immutable ID" value={candidate.immutableId} />
+          <Bio label="Form Submit ID" value={item._id} />
+          <Bio label="Candidate ID" value={candidate.immutableId || candidate._id} />
           <Bio label="Age" value={candidateAge(candidate.dateOfBirth)} />
           <Bio label="Date of birth" value={candidate.dateOfBirth ? new Date(candidate.dateOfBirth).toLocaleDateString() : "-"} />
           <Bio label="Gender" value={candidate.gender} />
+          <Bio label="Email" value={candidate.email} />
+          <Bio label="Mobile" value={candidate.mobile} />
           <Bio label="Address" value={candidate.address} />
           <Bio label="Pincode" value={candidate.pincode} />
           <Bio label="Experience" value={candidate.experience} />
@@ -228,11 +277,12 @@ function CandidateModal({ item, onClose }) {
           <p className="mt-2 text-sm leading-6 text-muted-foreground">{candidate.about || "No description provided."}</p>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {candidate.profilePhoto?.url || item.candidateProfilePhotoUrl ? <DocumentLink label="Profile Photo" url={candidate.profilePhoto?.url || item.candidateProfilePhotoUrl} /> : null}
-          {candidate.resume?.url || item.candidateResumeUrl ? <DocumentLink label="Resume" url={candidate.resume?.url || item.candidateResumeUrl} /> : null}
-          {item.governmentIdUrl ? <DocumentLink label="Application Government ID" url={item.governmentIdUrl} /> : null}
-          {documents.map((doc, index) => <DocumentLink key={`${doc.url}-${index}`} label={doc.type || `Document ${index + 1}`} url={doc.url} />)}
+        <div className="mt-6">
+          <h3 className="font-display text-lg font-semibold">Uploaded files</h3>
+          <div className="admin-doc-grid mt-4">
+            {documents.map(({ label, doc }, index) => <DocumentPreview key={`${getDocUrl(doc)}-${index}`} label={label} doc={doc} />)}
+            {!documents.length ? <p className="text-sm text-muted-foreground">No documents uploaded.</p> : null}
+          </div>
         </div>
       </div>
     </div>
@@ -243,13 +293,93 @@ function Bio({ label, value }) {
   return <div className="rounded-xl bg-muted p-3"><small className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</small><p className="mt-1 text-sm font-semibold">{value || "-"}</p></div>;
 }
 
-function DocumentLink({ label, url }) {
+function DocumentPreview({ label, doc }) {
+  const [open, setOpen] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [blobPreviewUrl, setBlobPreviewUrl] = useState("");
+  const url = getDocUrl(doc);
+  const isImage = isImageDocument(doc, label);
+  const isPdf = isPdfDocument(doc, label);
+
+  useEffect(() => {
+    if (!open || !url || isImage || !isPdf) return undefined;
+    const controller = new AbortController();
+    let objectUrl = "";
+    setPreviewLoading(true);
+    setPreviewFailed(false);
+    setBlobPreviewUrl("");
+
+    fetch(url, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("Unable to load document");
+        return response.blob();
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+        setBlobPreviewUrl(objectUrl);
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") setPreviewFailed(true);
+      })
+      .finally(() => setPreviewLoading(false));
+
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [open, url, isImage, isPdf]);
+
   if (!url) return null;
   return (
-    <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-sm font-semibold transition hover:border-signal hover:text-signal">
-      <FileText className="size-5 text-signal" />
-      <span className="capitalize">{label}</span>
-    </a>
+    <>
+      <button className="admin-doc" type="button" onClick={() => { setPreviewFailed(false); setOpen(true); }}>
+        {isImage ? <img src={url} alt={label} /> : <span className="admin-doc-icon">{isPdf ? <FileText size={32} /> : <ImageIcon size={32} />}</span>}
+        <b>{label}</b>
+        <span>{isImage || isPdf ? "Live preview" : "Open file"}</span>
+      </button>
+      {open ? (
+        <div className="document-modal" role="dialog" aria-modal="true" aria-label={`${label} preview`} onMouseDown={() => setOpen(false)}>
+          <div className="document-modal-card" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="document-modal-head">
+              <div>
+                <strong>{label}</strong>
+                <span>{isImage ? "Image preview" : isPdf ? "PDF preview" : "Document file"}</span>
+              </div>
+              <div>
+                <a href={url} target="_blank" rel="noreferrer" className="btn-secondary">Open <ExternalLink size={15} /></a>
+                <a href={url} download className="btn-secondary">Download <Download size={15} /></a>
+                <button className="document-close" type="button" onClick={() => setOpen(false)} aria-label="Close preview"><X size={20} /></button>
+              </div>
+            </div>
+            {previewLoading ? (
+              <div className="document-preview-fallback">
+                <span className="loading-spinner" />
+                <h3>Preparing preview</h3>
+                <p>Candidate upload ko live preview ke liye load kiya ja raha hai.</p>
+              </div>
+            ) : previewFailed ? (
+              <div className="document-preview-fallback">
+                <FileText size={42} />
+                <h3>Preview could not load</h3>
+                <p>Browser ne inline preview block kiya hai. Open button se file new tab me verify kar sakte hain.</p>
+                <a href={url} target="_blank" rel="noreferrer" className="btn-search">Open document <ExternalLink size={15} /></a>
+              </div>
+            ) : isImage ? (
+              <img className="document-modal-image" src={url} alt={label} onError={() => setPreviewFailed(true)} />
+            ) : isPdf ? (
+              <iframe className="document-modal-frame" src={blobPreviewUrl || url} title={label} onError={() => setPreviewFailed(true)} />
+            ) : (
+              <div className="document-preview-fallback">
+                <FileText size={42} />
+                <h3>Preview not available</h3>
+                <p>This file type can be reviewed with Open or Download.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -282,10 +412,13 @@ function InterviewModal({ items, value, onChange, onClose, onSubmit, loading }) 
               <option value="remote">Remote</option>
               <option value="physical">Physical / in-person</option>
             </Field>
-            <Field label="Support contact" value={value.supportContact} onChange={(e) => set("supportContact", e.target.value)} required />
+            <Field label="HR Name" value={value.hrName} onChange={(e) => set("hrName", e.target.value)} placeholder="e.g. Priya Sharma" required />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Support contact" value={value.supportContact} onChange={(e) => set("supportContact", e.target.value)} required />
             <Field label="Date" type="date" value={value.date} onChange={(e) => set("date", e.target.value)} required />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Time" type="time" value={value.time} onChange={(e) => set("time", e.target.value)} required />
           </div>
           {remote ? (

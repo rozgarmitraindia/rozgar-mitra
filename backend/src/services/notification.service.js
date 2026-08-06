@@ -77,3 +77,11 @@ export async function markAllAsRead(userId) {
   const result = await Notification.updateMany({ recipient: userId, status: "unread" }, { status: "read" });
   return result;
 }
+
+export async function deleteNotificationById(id) {
+  return Notification.findByIdAndDelete(id);
+}
+
+export async function deleteAllNotifications(filter = {}) {
+  return Notification.deleteMany(filter);
+}

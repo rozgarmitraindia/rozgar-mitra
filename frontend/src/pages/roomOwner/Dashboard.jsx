@@ -17,7 +17,6 @@ export default function RoomOwnerDashboard() {
         const data = await fetchRoomOwnerSummary();
         setSummary(data);
       } catch (err) {
-        console.error(err);
         setError(err.message || "Unable to load dashboard summary.");
       } finally {
         setLoading(false);
@@ -73,6 +72,7 @@ export default function RoomOwnerDashboard() {
             <Link className="btn-search" to="/post-room">Post New Room</Link>
             <Link className="btn-secondary" to="/room-owner/rooms">Manage Rooms</Link>
             <Link className="btn-secondary" to="/room-owner/visit-requests">Review Visit Requests</Link>
+            <Link className="btn-secondary" to="/room-owner/notifications">Notifications</Link>
           </div>
         </div>
 

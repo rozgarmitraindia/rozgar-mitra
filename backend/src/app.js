@@ -15,6 +15,7 @@ import { usersRouter } from "./src-routes/users.routes.js";
 import { sendError } from "./utils/apiResponse.js";
 
 const app = express();
+app.set("trust proxy", 1);
 
 // Allow multiple comma-separated frontend origins. Normalize by removing trailing slashes.
 const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
@@ -50,13 +51,29 @@ app.use(
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: Number(process.env.RATE_LIMIT_MAX || 300),
+    limit: Number(process.env.RATE_LIMIT_MAX || 1500),
     standardHeaders: "draft-7",
     legacyHeaders: false,
+    skip: (req) => req.path === "/health" || req.path.startsWith("/api/auth/google"),
+    handler: (_req, res) => sendError(res, {
+      statusCode: 429,
+      code: "RATE_LIMITED",
+      message: "Server busy hai. Please kuch seconds baad retry karein.",
+    }),
   })
 );
 app.use(express.json({ limit: "2mb" }));
 app.use(mongoSanitize());
+
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on("finish", () => {
+    if (req.path === "/health") return;
+    const level = res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "log";
+    console[level](`${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - startedAt}ms`);
+  });
+  next();
+});
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "rozgar-mitra-backend" }));
 app.use("/api/auth", authRouter);

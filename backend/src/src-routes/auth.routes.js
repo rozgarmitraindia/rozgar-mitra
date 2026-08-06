@@ -32,7 +32,11 @@ const registrationFiles = registrationUpload.fields([
   { name: "govtId", maxCount: 1 },
   { name: "companyLogo", maxCount: 1 },
   { name: "companyDocument", maxCount: 1 },
-  { name: "roomPhotos", maxCount: 8 },
+  { name: "hotelFrontPhoto", maxCount: 1 },
+  { name: "hotelSidePhoto", maxCount: 1 },
+  { name: "localTradeLicense", maxCount: 1 },
+  { name: "ownerAadhaarCard", maxCount: 1 },
+  { name: "ownerPanCard", maxCount: 1 },
   { name: "propertyDocument", maxCount: 1 },
 ]);
 
@@ -183,8 +187,22 @@ function uploadToCloudinary(file, folder) {
   });
 }
 
+const registrationDocumentLabels = {
+  profile: "Profile Photo",
+  resume: "Resume",
+  "government-id": "Government ID",
+  "company-logo": "Company Logo",
+  "company-document": "Company Verification Document",
+  "property-document": "Property Document",
+  "hotel-front-photo": "Hotel/PG Front Photo",
+  "hotel-side-view-photo": "Hotel/PG Side View Photo",
+  "local-trade-license": "लोकल ट्रेड लाइसेंस",
+  "owner-aadhaar-card": "मालिक का आधार कार्ड",
+  "owner-pan-card": "पैन कार्ड",
+};
+
 function documentFromUpload(result, type) {
-  return { type, url: result.secure_url, publicId: result.public_id, resourceType: result.resource_type, format: result.format };
+  return { label: registrationDocumentLabels[type] || type, type, url: result.secure_url, publicId: result.public_id, resourceType: result.resource_type, format: result.format };
 }
 
 async function uploadRegistrationFiles(req, role, email) {
@@ -198,20 +216,26 @@ async function uploadRegistrationFiles(req, role, email) {
     return { ...documentFromUpload(await uploadToCloudinary(file, folder), type), originalName: file.originalname, mimeType: file.mimetype };
   };
 
-  const [profilePhoto, resume, govtId, companyLogo, companyDocument, propertyDocument, roomPhotos] = await Promise.all([
+  const [profilePhoto, resume, govtId, companyLogo, companyDocument, propertyDocument, hotelFrontPhoto, hotelSidePhoto, localTradeLicense, ownerAadhaarCard, ownerPanCard] = await Promise.all([
     uploadOne("profilePhoto", "profile"),
     uploadOne("resume", "resume"),
     uploadOne("govtId", "government-id"),
     uploadOne("companyLogo", "company-logo"),
     uploadOne("companyDocument", "company-document"),
     uploadOne("propertyDocument", "property-document"),
-    Promise.all((files.roomPhotos || []).map(async (file) => ({ ...documentFromUpload(await uploadToCloudinary(file, folder), "room-photo"), originalName: file.originalname, mimeType: file.mimetype }))),
+    uploadOne("hotelFrontPhoto", "hotel-front-photo"),
+    uploadOne("hotelSidePhoto", "hotel-side-view-photo"),
+    uploadOne("localTradeLicense", "local-trade-license"),
+    uploadOne("ownerAadhaarCard", "owner-aadhaar-card"),
+    uploadOne("ownerPanCard", "owner-pan-card"),
   ]);
+  const roomPhotos = [hotelFrontPhoto, hotelSidePhoto].filter(Boolean);
+  const roomOwnerDocuments = [propertyDocument, localTradeLicense, ownerAadhaarCard, ownerPanCard].filter(Boolean);
 
   return {
     ...(profilePhoto || companyLogo ? { profilePhoto: profilePhoto || companyLogo } : {}),
     ...(resume ? { resume } : {}),
-    ...(govtId || propertyDocument ? { documents: [govtId, propertyDocument].filter(Boolean) } : {}),
+    ...(govtId || roomOwnerDocuments.length ? { documents: [govtId, ...roomOwnerDocuments].filter(Boolean) } : {}),
     ...(companyDocument ? { companyDocs: [companyDocument] } : {}),
     ...(roomPhotos.length ? { roomPhotos } : {}),
   };
@@ -275,6 +299,25 @@ async function createAccount(req, res, role, prefix) {
     const mobileExists = await User.exists({ role, mobile: body.mobile });
     if (mobileExists) {
       return sendError(res, { statusCode: 409, code: "MOBILE_EXISTS", message: "Account already exists with this mobile number" });
+    }
+  }
+
+  if (role === "roomOwner") {
+    const files = req.files || {};
+    const requiredFiles = [
+      ["hotelFrontPhoto", "Hotel/PG front photo"],
+      ["hotelSidePhoto", "Hotel/PG side view photo"],
+      ["localTradeLicense", "Local trade license"],
+      ["ownerAadhaarCard", "Owner Aadhaar card"],
+      ["ownerPanCard", "Owner PAN card"],
+    ];
+    const missing = requiredFiles.filter(([field]) => !files[field]?.[0]).map(([, label]) => label);
+    if (missing.length) {
+      return sendError(res, {
+        statusCode: 400,
+        code: "ROOM_OWNER_DOCUMENTS_REQUIRED",
+        message: `${missing.join(", ")} required hai.`,
+      });
     }
   }
 
@@ -485,6 +528,15 @@ function firstConfiguredUrl(value, fallback) {
   return String(value || fallback).split(",")[0].trim().replace(/\/$/, "");
 }
 
+function redirectGoogleFailure(res, message, stateData = {}) {
+  const frontendUrl = firstConfiguredUrl(process.env.FRONTEND_URL, "http://localhost:5173");
+  const query = new URLSearchParams({
+    error: message || "Google login failed",
+    redirectTo: stateData.redirectTo || "/",
+  }).toString();
+  return res.redirect(`${frontendUrl}/google-callback?${query}`);
+}
+
 function parseGoogleState(state) {
   try {
     return JSON.parse(decodeURIComponent(state));
@@ -505,11 +557,12 @@ authRouter.get("/google", asyncHandler(async (req, res) => {
 authRouter.get("/google/callback", asyncHandler(async (req, res) => {
   const code = req.query.code;
   const error = req.query.error;
+  const stateData = req.query.state ? parseGoogleState(String(req.query.state)) : { role: "candidate", redirectTo: "/" };
   if (error) {
-    return sendError(res, { statusCode: 400, code: "GOOGLE_AUTH_ERROR", message: `Google auth error: ${String(error)}` });
+    return redirectGoogleFailure(res, `Google auth error: ${String(error)}`, stateData);
   }
   if (!code) {
-    return sendError(res, { statusCode: 400, code: "GOOGLE_AUTH_CODE_REQUIRED", message: "Google auth code is required" });
+    return redirectGoogleFailure(res, "Google auth code missing. Please try again.", stateData);
   }
 
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`}/api/auth/google/callback`;
@@ -528,17 +581,16 @@ authRouter.get("/google/callback", asyncHandler(async (req, res) => {
   if (!tokenResponse.ok || !tokenData.id_token) {
     const reason = tokenData.error_description || tokenData.error || "Failed to exchange Google auth code";
     console.error("Google token exchange failed", { reason, redirectUri, status: tokenResponse.status });
-    return sendError(res, { statusCode: 400, code: "GOOGLE_TOKEN_EXCHANGE_FAILED", message: `${reason}. Confirm this exact redirect URI is allowed in Google Console: ${redirectUri}` });
+    return redirectGoogleFailure(res, `${reason}. Google Console redirect URI check karein: ${redirectUri}`, stateData);
   }
 
   const verifyResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(tokenData.id_token)}`);
   const verifyData = await verifyResponse.json();
   if (!verifyResponse.ok || !verifyData.email) {
-    return sendError(res, { statusCode: 500, code: "GOOGLE_ID_TOKEN_INVALID", message: "Failed to verify Google ID token" });
+    return redirectGoogleFailure(res, "Google ID token verify nahi ho paya. Please try again.", stateData);
   }
 
   const email = String(verifyData.email).toLowerCase();
-  const stateData = req.query.state ? parseGoogleState(String(req.query.state)) : { role: "candidate", redirectTo: "/" };
   const userRole = roles.includes(stateData.role) ? stateData.role : "candidate";
   const user = await User.findOneAndUpdate(
     { email },
@@ -558,7 +610,7 @@ authRouter.get("/google/callback", asyncHandler(async (req, res) => {
   );
 
   const blocked = getBlockedStatusResponse(user);
-  if (blocked) return sendError(res, blocked);
+  if (blocked) return redirectGoogleFailure(res, blocked.message, stateData);
   const tokens = await issueTokens(user);
   const redirectTo = stateData.redirectTo || "/";
 

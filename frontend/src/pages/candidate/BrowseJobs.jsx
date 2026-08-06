@@ -46,11 +46,9 @@ export default function BrowseJobs() {
     }
     loadJobs();
     const refresh = () => loadJobs(true);
-    const interval = window.setInterval(refresh, 5000);
     window.addEventListener("focus", refresh);
     return () => {
       active = false;
-      window.clearInterval(interval);
       window.removeEventListener("focus", refresh);
     };
   }, []);

@@ -3,6 +3,7 @@ import { Bell, CheckCheck, Clock, RefreshCw } from "lucide-react";
 import { Button } from "../../components/ui/button.jsx";
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "../../utils/notification.js";
 import { useToast } from "../../contexts/ToastContext.jsx";
+import { getSession } from "../../utils/auth.js";
 import { cn } from "../../lib/utils.js";
 
 function formatDate(value) {
@@ -22,6 +23,9 @@ export default function EmployerNotifications() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const toast = useToast();
+  const role = getSession()?.role;
+  const label = role === "roomOwner" ? "Room owner notifications" : "Employer notifications";
+  const description = role === "roomOwner" ? "Admin decisions, visit requests, booking confirmations and system alerts appear here." : "Admin decisions, candidate applications, interview updates and system alerts appear here.";
 
   const unreadCount = useMemo(() => items.filter((item) => item.status === "unread").length, [items]);
 
@@ -73,10 +77,10 @@ export default function EmployerNotifications() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 <Bell className="size-3.5 text-signal" />
-                Employer notifications
+                {label}
               </div>
               <h1 className="mt-4 font-display text-4xl font-bold">Notification center</h1>
-              <p className="mt-2 max-w-2xl text-muted-foreground">Admin decisions, candidate applications, interview updates and system alerts appear here.</p>
+              <p className="mt-2 max-w-2xl text-muted-foreground">{description}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={load}><RefreshCw className="size-4" />Refresh</Button>
@@ -121,7 +125,7 @@ export default function EmployerNotifications() {
             <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center shadow-float">
               <Bell className="mx-auto size-8 text-signal" />
               <h2 className="mt-4 font-display text-xl font-semibold">No notifications yet</h2>
-              <p className="mt-2 text-sm text-muted-foreground">New admin updates and candidate activity will appear here automatically.</p>
+              <p className="mt-2 text-sm text-muted-foreground">New admin updates and account activity will appear here automatically.</p>
             </div>
           ) : null}
         </div>

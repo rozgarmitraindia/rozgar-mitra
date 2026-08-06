@@ -68,7 +68,7 @@ export default function Register() {
     if (role === "candidate") form.append("skills", JSON.stringify(selectedSkills));
     if (role === "employer") form.append("email", String(form.get("companyEmail") || ""));
 
-    const uploadFiles = ["profilePhoto", "resume", "govtId", "companyLogo", "companyDocument", "roomPhotos", "propertyDocument"]
+    const uploadFiles = ["profilePhoto", "resume", "govtId", "companyLogo", "companyDocument", "hotelFrontPhoto", "hotelSidePhoto", "localTradeLicense", "ownerAadhaarCard", "ownerPanCard"]
       .flatMap((name) => Array.from(form.getAll(name)).filter((file) => file instanceof File && file.size > 0));
     const hasFiles = uploadFiles.length > 0;
     setUploadFileNames(uploadFiles.map((file) => file.name));
@@ -165,6 +165,18 @@ export default function Register() {
 }
 
 function CandidateFields({ candidateName, setCandidateName, selectedSkills, toggleSkill }) {
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const age = useMemo(() => {
+    if (!dateOfBirth) return "";
+    const birthDate = new Date(dateOfBirth);
+    if (Number.isNaN(birthDate.valueOf())) return "";
+    const today = new Date();
+    let years = today.getFullYear() - birthDate.getFullYear();
+    const birthdayPassed = today.getMonth() > birthDate.getMonth() || (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate());
+    if (!birthdayPassed) years -= 1;
+    return years >= 0 ? String(years) : "";
+  }, [dateOfBirth]);
+
   return (
     <>
       <Field label="Full Name" name="fullName" value={candidateName} onChange={(event) => setCandidateName(event.target.value)} placeholder="e.g. Sunita Sharma" required />
@@ -172,8 +184,9 @@ function CandidateFields({ candidateName, setCandidateName, selectedSkills, togg
         <IconField label="Mobile Number" name="mobile" icon={Smartphone} placeholder="10 digit mobile number" required />
         <IconField label="Email ID" name="email" icon={Mail} type="email" placeholder="candidate@example.com" required />
       </div>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Date of Birth" name="dateOfBirth" type="date" />
+      <div className="grid gap-5 sm:grid-cols-3">
+        <Field label="Age" value={age || "-"} readOnly aria-readonly="true" className="font-semibold text-muted-foreground" />
+        <Field label="Date of Birth" name="dateOfBirth" type="date" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} />
         <SelectField label="Gender" name="gender" options={[["", "Select gender"], ["male", "Male"], ["female", "Female"], ["other", "Other"], ["preferNotToSay", "Prefer not to say"]]} />
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
@@ -240,8 +253,13 @@ function OwnerFields({ propertyName, setPropertyName }) {
       </div>
       <TextArea label="Address" name="address" placeholder="Property complete address" />
       <div className="grid gap-5 sm:grid-cols-2">
-        <FileField label="Room Photos" name="roomPhotos" accept="image/*" multiple />
-        <FileField label="Hotel/PG Proof Document" name="propertyDocument" accept="image/jpeg,image/png,image/webp,application/pdf" required />
+        <FileField label="Hotel/PG Front Photo" name="hotelFrontPhoto" accept="image/*" required />
+        <FileField label="Hotel/PG Side View Photo" name="hotelSidePhoto" accept="image/*" required />
+      </div>
+      <div className="grid gap-5 sm:grid-cols-3">
+        <FileField label="लोकल ट्रेड लाइसेंस" name="localTradeLicense" accept="image/jpeg,image/png,image/webp,application/pdf" required />
+        <FileField label="मालिक का आधार कार्ड" name="ownerAadhaarCard" accept="image/jpeg,image/png,image/webp,application/pdf" required />
+        <FileField label="पैन कार्ड" name="ownerPanCard" accept="image/jpeg,image/png,image/webp,application/pdf" required />
       </div>
     </>
   );

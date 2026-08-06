@@ -25,6 +25,7 @@ const jobStatuses = ["pending", "live", "rejected"];
 const bookingStatuses = ["pending", "confirmed", "completed", "cancelled", "rejected"];
 const complaintStatuses = ["open", "inReview", "resolved", "rejected"];
 const notificationStatuses = ["draft", "sent", "failed", "read", "unread"];
+const userBioSelect = "fullName email mobile phone dateOfBirth gender address pincode skills experience workExperienceMonths workExperiences availability about profilePhoto resume documents immutableId createdAt";
 
 const modules = {
   candidates: {
@@ -80,7 +81,7 @@ const modules = {
     label: "Application",
     filter: {},
     search: ["status"],
-    statuses: ["submitted", "shortlisted", "interview", "hired", "rejected"],
+    statuses: ["submitted", "shortlisted", "interview", "hired", "terminated", "rejected"],
     populate: "candidate employer job",
   },
   bookings: {
@@ -89,7 +90,11 @@ const modules = {
     filter: {},
     search: ["status", "message", "visitDate", "visitTime"],
     statuses: bookingStatuses,
-    populate: "room user owner",
+    populate: [
+      { path: "room" },
+      { path: "user", select: userBioSelect },
+      { path: "owner", select: "fullName propertyName email mobile companyPhone immutableId status" },
+    ],
   },
   complaints: {
     model: Complaint,
@@ -548,6 +553,33 @@ adminRouter.patch("/:type/:id", validate(listingEditSchema), asyncHandler(async 
   });
 
   return sendSuccess(res, { message: `${config.label} updated`, data: { item: shapeItem(item) } });
+}));
+
+adminRouter.delete("/notifications/all", asyncHandler(async (req, res) => {
+  const result = await Notification.deleteMany({});
+  await createActivity(req, {
+    action: "notification.deleteAll",
+    module: "notifications",
+    entity: { _id: "all", constructor: { modelName: "Notification" } },
+    status: "deleted",
+    reason: "Admin permanently deleted all notifications",
+    metadata: { deletedCount: result.deletedCount || 0 },
+  });
+  return sendSuccess(res, { message: "All notifications permanently deleted", data: { deletedCount: result.deletedCount || 0 } });
+}));
+
+adminRouter.delete("/notifications/:id", asyncHandler(async (req, res) => {
+  const notification = await Notification.findByIdAndDelete(req.params.id);
+  if (!notification) return sendError(res, { statusCode: 404, code: "NOTIFICATION_NOT_FOUND", message: "Notification not found" });
+  await createActivity(req, {
+    action: "notification.delete",
+    module: "notifications",
+    entity: notification,
+    status: "deleted",
+    reason: "Admin permanently deleted notification",
+    metadata: { title: notification.title, recipient: notification.recipient },
+  });
+  return sendSuccess(res, { message: "Notification permanently deleted", data: { id: String(notification._id) } });
 }));
 
 adminRouter.delete("/:type/:id", validate(reasonSchema), asyncHandler(async (req, res) => {

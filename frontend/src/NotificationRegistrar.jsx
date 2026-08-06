@@ -31,8 +31,8 @@ export default function NotificationRegistrar() {
           const body = payload.notification?.body || payload.data?.body || '';
           toast.show(`${title}: ${body}`, 'info', 8000);
         });
-      } catch (e) {
-        console.error('Notification setup error', e);
+      } catch {
+        // Notification registration is optional; keep the app quiet if the browser/backend is unavailable.
       }
     }
 

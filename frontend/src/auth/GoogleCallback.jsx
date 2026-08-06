@@ -13,6 +13,13 @@ export default function GoogleCallback() {
     const refreshToken = params.get("refreshToken");
     const user = params.get("user");
     const redirectTo = params.get("redirectTo") || "/";
+    const error = params.get("error");
+
+    if (error) {
+      toast.show(error, "error");
+      setTimeout(() => navigate("/login", { replace: true, state: { error } }), 900);
+      return;
+    }
 
     if (token && refreshToken && user) {
       try {
