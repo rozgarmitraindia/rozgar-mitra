@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { setSession } from "../utils/auth.js";
 import { useToast } from "../contexts/ToastContext.jsx";
 
+const handledCallbacks = new Set();
+
 export default function GoogleCallback() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -14,6 +16,10 @@ export default function GoogleCallback() {
     const user = params.get("user");
     const redirectTo = params.get("redirectTo") || "/";
     const error = params.get("error");
+    const callbackKey = error ? `error:${error}:${redirectTo}` : `success:${token}:${refreshToken}`;
+
+    if (handledCallbacks.has(callbackKey)) return;
+    handledCallbacks.add(callbackKey);
 
     if (error) {
       toast.show(error, "error");

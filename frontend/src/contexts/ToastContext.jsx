@@ -1,18 +1,20 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
-  function show(message, type = "info", ttl = 3000) {
+  const show = useCallback(function show(message, type = "info", ttl = 3000) {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, message, type }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ttl);
-  }
+  }, []);
+
+  const value = useMemo(() => ({ show }), [show]);
 
   return (
-    <ToastContext.Provider value={{ show }}>
+    <ToastContext.Provider value={value}>
       {children}
       <div className="toast-root" aria-live="polite">
         {toasts.map((t) => (
