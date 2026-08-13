@@ -5,6 +5,7 @@ import app from "./app.js";
 import { bootstrapAdmin } from "./utils/bootstrapAdmin.js";
 import { initializeSocket } from "./utils/socket.js";
 import { startInterviewReminderScheduler } from "./services/interviewReminder.service.js";
+import { validateEnvironment } from "./utils/env.js";
 
 const port = process.env.PORT || 5000;
 
@@ -30,8 +31,13 @@ if (mongoDnsServers.length) {
 
 async function start() {
 	try {
+		validateEnvironment();
 		console.log('Starting Rozgar Mitra API...');
-		await mongoose.connect(process.env.MONGODB_URI);
+		await mongoose.connect(process.env.MONGODB_URI, {
+			serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS || 10000),
+			maxPoolSize: Number(process.env.MONGODB_MAX_POOL_SIZE || 20),
+			minPoolSize: Number(process.env.MONGODB_MIN_POOL_SIZE || 0),
+		});
 		console.log(`MongoDB connected: ${mongoose.connection.host}:${mongoose.connection.port}/${mongoose.connection.name}`);
 
 		await bootstrapAdmin();
@@ -39,6 +45,9 @@ async function start() {
 		const server = app.listen(port, () => {
 			console.log(`Rozgar Mitra API running on http://localhost:${port} (env=${process.env.NODE_ENV || 'development'})`);
 		});
+		server.requestTimeout = Number(process.env.HTTP_REQUEST_TIMEOUT_MS || 120000);
+		server.headersTimeout = Number(process.env.HTTP_HEADERS_TIMEOUT_MS || 65000);
+		server.keepAliveTimeout = Number(process.env.HTTP_KEEP_ALIVE_TIMEOUT_MS || 60000);
 		server.on("error", (error) => {
 			if (error.code === "EADDRINUSE") {
 				console.error(`Port ${port} is already in use. Close the old backend terminal/process, then run npm run dev again.`);

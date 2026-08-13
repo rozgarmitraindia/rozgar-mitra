@@ -4,8 +4,16 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "dev": "node src/server.js",
+    "dev:watch": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "check": "node --check src/server.js && node --check src/app.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -15,7 +23,7 @@
     "express": "^4.21.1",
     "express-mongo-sanitize": "^2.2.0",
     "express-rate-limit": "^8.6.1",
-    "firebase-admin": "^12.6.0",
+    "firebase-admin": "14.2.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^7.5.0",

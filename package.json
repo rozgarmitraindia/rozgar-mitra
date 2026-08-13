@@ -1,6 +1,21 @@
 {
+  "name": "rozgar-mitra-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names BACKEND,FRONTEND --prefix-colors blue,green \"npm --prefix backend run dev\" \"wait-on --timeout 60000 --interval 500 http-get://127.0.0.1:3000/health && npm --prefix frontend run dev\"",
+    "dev:watch": "concurrently --kill-others-on-fail --names BACKEND,FRONTEND --prefix-colors blue,green \"npm --prefix backend run dev:watch\" \"wait-on --timeout 60000 --interval 500 http-get://127.0.0.1:3000/health && npm --prefix frontend run dev\"",
+    "build": "npm --prefix backend run check && npm --prefix frontend run build",
+    "start": "npm --prefix backend start"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@babel/runtime": "^8.0.0",
     "prop-types": "^15.8.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "wait-on": "^9.0.1"
   }
 }

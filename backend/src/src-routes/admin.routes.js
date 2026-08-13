@@ -11,6 +11,7 @@ import { ActivityLog } from "../models/ActivityLog.js";
 import { Booking } from "../models/Booking.js";
 import { Complaint } from "../models/Complaint.js";
 import { Notification } from "../models/Notification.js";
+import { Skill } from "../models/Skill.js";
 import { sendMail, sendStatusMail, sendAdminCredentialsMail } from "../services/mail.service.js";
 import { createNotification } from "../services/notification.service.js";
 import { asyncHandler, sendError, sendSuccess } from "../utils/apiResponse.js";
@@ -25,7 +26,7 @@ const jobStatuses = ["pending", "live", "rejected"];
 const bookingStatuses = ["pending", "confirmed", "completed", "cancelled", "rejected"];
 const complaintStatuses = ["open", "inReview", "resolved", "rejected"];
 const notificationStatuses = ["draft", "sent", "failed", "read", "unread"];
-const userBioSelect = "fullName email mobile phone dateOfBirth gender address pincode skills experience workExperienceMonths workExperiences availability about profilePhoto resume documents immutableId createdAt";
+const userBioSelect = "fullName email mobile phone dateOfBirth gender address pincode skills companyPreferences talentShares experience workExperienceMonths workExperiences availability about profilePhoto resume documents immutableId createdAt";
 
 const modules = {
   candidates: {
@@ -176,6 +177,23 @@ const adminCreateSchema = z.object({
     password: z.string().trim().min(6),
   }),
   params: z.object({}).optional(),
+  query: z.object({}).optional(),
+});
+
+const skillStatusSchema = z.object({
+  body: z.object({
+    status: z.enum(["approved", "rejected"]),
+    reason: z.string().trim().optional().or(z.literal("")),
+  }),
+  params: z.object({
+    id: z.string().trim().min(1),
+  }),
+  query: z.object({}).optional(),
+});
+
+const contactReplySchema = z.object({
+  body: z.object({ reply: z.string().trim().min(2).max(10000) }),
+  params: z.object({ id: z.string().trim().min(1) }),
   query: z.object({}).optional(),
 });
 
@@ -412,6 +430,70 @@ adminRouter.get("/reports/summary", asyncHandler(async (_req, res) => {
   return sendSuccess(res, { message: "Reports fetched", data: { usersByStatus, jobsByStatus, roomsByStatus, applicationsByStatus } });
 }));
 
+adminRouter.get("/skills", asyncHandler(async (req, res) => {
+  const requestedStatus = String(req.query.status || "").trim().toLowerCase();
+  const allowedStatuses = ["pending", "approved", "rejected"];
+  const filter = {};
+
+  if (requestedStatus && allowedStatuses.includes(requestedStatus)) {
+    if (requestedStatus === "pending") {
+      filter.isApproved = false;
+      filter.isRejected = false;
+    } else if (requestedStatus === "approved") {
+      filter.isApproved = true;
+    } else {
+      filter.isRejected = true;
+    }
+  }
+
+  const items = await Skill.find(filter).sort({ createdAt: -1 }).lean();
+  const pending = items.filter((item) => !item.isApproved && !item.isRejected);
+
+  return sendSuccess(res, {
+    message: "Skill suggestions fetched",
+    data: {
+      items,
+      pending,
+      approved: items.filter((item) => item.isApproved),
+      rejected: items.filter((item) => item.isRejected),
+    },
+  });
+}));
+
+adminRouter.patch("/skills/:id/status", validate(skillStatusSchema), asyncHandler(async (req, res) => {
+  const { id } = req.validated.params;
+  const { status, reason = "" } = req.validated.body;
+
+  const item = await Skill.findById(id);
+  if (!item) {
+    return sendError(res, { statusCode: 404, code: "SKILL_NOT_FOUND", message: "Skill suggestion not found" });
+  }
+
+  if (status === "approved") {
+    item.isApproved = true;
+    item.isRejected = false;
+    item.approvedBy = req.user._id;
+    item.rejectedBy = null;
+    item.displayName = item.displayName || item.name;
+  } else {
+    item.isApproved = false;
+    item.isRejected = true;
+    item.rejectedBy = req.user._id;
+    item.approvedBy = null;
+  }
+
+  item.name = String(item.name || "").trim().toLowerCase();
+  item.displayName = String(item.displayName || item.name || "").trim();
+  if (reason) item.reason = String(reason).trim();
+
+  await item.save();
+
+  return sendSuccess(res, {
+    message: status === "approved" ? "Skill approved and added to the master list" : "Skill rejected",
+    data: { item: item.toObject() },
+  });
+}));
+
 adminRouter.post("/admins", validate(adminCreateSchema), asyncHandler(async (req, res) => {
   const { fullName, email, mobile, password } = req.validated.body;
   const existing = await User.findOne({ role: "admin", $or: [{ email }, { mobile }] });
@@ -644,6 +726,104 @@ adminRouter.delete("/:type/:id", validate(reasonSchema), asyncHandler(async (req
   await User.deleteOne({ _id: user._id });
 
   return sendSuccess(res, { message: "Account permanently deleted", data: { id: String(user._id), metadata } });
+}));
+
+adminRouter.get("/contact-messages", asyncHandler(async (_req, res) => {
+  const items = await Complaint.find({ module: "contact" })
+    .populate("repliedBy", "fullName email immutableId")
+    .sort({ createdAt: -1 })
+    .limit(500);
+  return sendSuccess(res, { message: "Contact messages fetched", data: { items: items.map(shapeItem) } });
+}));
+
+adminRouter.post("/contact-messages/:id/reply", validate(contactReplySchema), asyncHandler(async (req, res) => {
+  const item = await Complaint.findOne({ _id: req.validated.params.id, module: "contact" });
+  if (!item) return sendError(res, { statusCode: 404, code: "CONTACT_MESSAGE_NOT_FOUND", message: "Contact message not found." });
+  if (!item.contactEmail) return sendError(res, { statusCode: 400, code: "CONTACT_EMAIL_MISSING", message: "Sender email is not available." });
+  if (!process.env.RESEND_API_KEY || !process.env.MAIL_FROM) return sendError(res, { statusCode: 503, code: "EMAIL_NOT_CONFIGURED", message: "Email service is not configured. Add RESEND_API_KEY and MAIL_FROM." });
+  const reply = req.validated.body.reply;
+  await sendMail({
+    to: item.contactEmail,
+    subject: `Re: ${item.subject || "Your Rozgar Mitra enquiry"}`,
+    html: `<p>Hello ${String(item.contactName || "there").replace(/[<>&"']/g, "")},</p><p>${reply.replace(/[<>&]/g, (character) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[character]).replace(/\n/g, "<br />")}</p>`,
+  });
+  item.adminReply = reply;
+  item.repliedAt = new Date();
+  item.repliedBy = req.user._id;
+  item.status = "resolved";
+  await item.save();
+  await createActivity(req, {
+    action: "contact.reply",
+    module: "contact",
+    entity: item,
+    status: "resolved",
+    reason: "",
+    metadata: { recipient: item.contactEmail, subject: item.subject },
+  });
+  return sendSuccess(res, { message: `Reply sent to ${item.contactEmail}.`, data: { item: shapeItem(item) } });
+}));
+
+adminRouter.get("/talent/groups", asyncHandler(async (_req, res) => {
+  const [candidates, employers] = await Promise.all([
+    User.find({ role: "candidate", status: "verified", skills: { $exists: true, $ne: [] }, companyPreferences: { $exists: true, $ne: [] } })
+      .select(userBioSelect)
+      .lean(),
+    User.find({ role: "employer", status: "verified" })
+      .select("companyName fullName email companyEmail immutableId")
+      .lean(),
+  ]);
+  const groups = new Map();
+  for (const candidate of candidates) {
+    for (const companyPreference of candidate.companyPreferences || []) {
+      for (const skill of candidate.skills || []) {
+        const key = `${String(companyPreference).trim().toLowerCase()}::${String(skill).trim().toLowerCase()}`;
+        if (!groups.has(key)) groups.set(key, { key, companyPreference, skill, candidates: [] });
+        groups.get(key).candidates.push(candidate);
+      }
+    }
+  }
+  const items = [...groups.values()]
+    .map((group) => ({
+      ...group,
+      count: group.candidates.length,
+      matchedEmployers: employers.filter((employer) => String(employer.companyName || employer.fullName || "").trim().toLowerCase() === String(group.companyPreference).trim().toLowerCase()),
+    }))
+    .sort((a, b) => b.count - a.count || a.companyPreference.localeCompare(b.companyPreference));
+  return sendSuccess(res, { message: "Candidate talent groups fetched", data: { items, employers } });
+}));
+
+adminRouter.post("/talent/share", asyncHandler(async (req, res) => {
+  const employerId = String(req.body.employerId || "").trim();
+  const candidateIds = Array.isArray(req.body.candidateIds) ? [...new Set(req.body.candidateIds.map(String))] : [];
+  const skill = String(req.body.skill || "").trim();
+  const companyPreference = String(req.body.companyPreference || "").trim();
+  if (!employerId || !candidateIds.length) return sendError(res, { statusCode: 400, code: "SHARE_DETAILS_REQUIRED", message: "Employer and at least one candidate are required." });
+  const employer = await User.findOne({ _id: employerId, role: "employer", status: "verified" });
+  if (!employer) return sendError(res, { statusCode: 404, code: "EMPLOYER_NOT_FOUND", message: "Verified employer not found." });
+  const candidates = await User.find({ _id: { $in: candidateIds }, role: "candidate", status: "verified" });
+  const now = new Date();
+  for (const candidate of candidates) {
+    const alreadyShared = (candidate.talentShares || []).some((share) => String(share.employer) === employerId && share.skill === skill && share.companyPreference === companyPreference);
+    if (!alreadyShared) candidate.talentShares.push({ employer: employer._id, sharedBy: req.user._id, skill, companyPreference, sharedAt: now });
+    await candidate.save();
+  }
+  await createNotification({
+    recipient: employer._id,
+    title: "New candidate talent group shared",
+    body: `Admin shared ${candidates.length} candidate profile${candidates.length === 1 ? "" : "s"} for ${skill || "your hiring needs"}.`,
+    metadata: { type: "talent_group_shared", skill, companyPreference, candidateCount: candidates.length },
+    sendEmail: true,
+    sendPush: true,
+  });
+  await createActivity(req, {
+    action: "talent.share",
+    module: "candidates",
+    entity: employer,
+    status: "shared",
+    reason: "",
+    metadata: { employerId, candidateIds: candidates.map((candidate) => String(candidate._id)), skill, companyPreference },
+  });
+  return sendSuccess(res, { message: `${candidates.length} candidate profiles shared with ${employer.companyName || employer.fullName}.`, data: { sharedCount: candidates.length } });
 }));
 
 adminRouter.get("/:type", asyncHandler(async (req, res) => {

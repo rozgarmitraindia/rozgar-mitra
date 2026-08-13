@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, Smartphone } from "lucide-react";
-import { skills } from "../data/siteData.js";
-import { apiUpload, makeReadableId } from "../utils/auth.js";
+import { skills as defaultSkills } from "../data/siteData.js";
+import { apiFetch, apiUpload, makeReadableId } from "../utils/auth.js";
 import { Button } from "../components/ui/button.jsx";
 import { cn } from "../lib/utils.js";
 
@@ -21,6 +21,9 @@ export default function Register() {
   const [companyName, setCompanyName] = useState("");
   const [propertyName, setPropertyName] = useState("");
   const [selectedSkills, setSelectedSkills] = useState([]);
+  const [customSkillInput, setCustomSkillInput] = useState("");
+  const [customSkillMode, setCustomSkillMode] = useState(false);
+  const [availableSkills, setAvailableSkills] = useState(defaultSkills);
   const [loading, setLoading] = useState(false);
   const [uploadingDocuments, setUploadingDocuments] = useState(false);
   const [uploadFileNames, setUploadFileNames] = useState([]);
@@ -43,7 +46,28 @@ export default function Register() {
     if (message && !error) successRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [message, error]);
 
+  useEffect(() => {
+    let active = true;
+    apiFetch("/skills")
+      .then((result) => {
+        if (!active) return;
+        const remoteSkills = result?.data?.skills || result?.skills || [];
+        const merged = [...new Set([...defaultSkills, ...remoteSkills.map((skill) => typeof skill === "string" ? skill : skill.displayName || skill.name)])];
+        setAvailableSkills(merged);
+      })
+      .catch(() => {
+        if (active) setAvailableSkills(defaultSkills);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   function toggleSkill(skill) {
+    if (skill === "Other") {
+      setCustomSkillMode((current) => !current);
+      return;
+    }
     setSelectedSkills((current) => current.includes(skill) ? current.filter((item) => item !== skill) : [...current, skill]);
   }
 
@@ -57,6 +81,7 @@ export default function Register() {
     const password = form.get("password");
     const confirmPassword = form.get("confirmPassword");
     const email = form.get("email") || form.get("companyEmail");
+    const normalizedSkills = [...new Set([...selectedSkills, ...(customSkillInput.trim() ? [customSkillInput.trim()] : [])].filter(Boolean))];
 
     if (password !== confirmPassword) {
       setLoading(false);
@@ -65,7 +90,7 @@ export default function Register() {
     }
 
     form.delete("confirmPassword");
-    if (role === "candidate") form.append("skills", JSON.stringify(selectedSkills));
+    if (role === "candidate") form.append("skills", JSON.stringify(normalizedSkills));
     if (role === "employer") form.append("email", String(form.get("companyEmail") || ""));
 
     const uploadFiles = ["profilePhoto", "resume", "govtId", "companyLogo", "companyDocument", "hotelFrontPhoto", "hotelSidePhoto", "localTradeLicense", "ownerAadhaarCard", "ownerPanCard"]
@@ -141,7 +166,17 @@ export default function Register() {
 
           <div className="mt-6 grid gap-5">
             {role === "candidate" ? (
-              <CandidateFields candidateName={candidateName} setCandidateName={setCandidateName} selectedSkills={selectedSkills} toggleSkill={toggleSkill} />
+              <CandidateFields
+                candidateName={candidateName}
+                setCandidateName={setCandidateName}
+                selectedSkills={selectedSkills}
+                toggleSkill={toggleSkill}
+                availableSkills={availableSkills}
+                customSkillInput={customSkillInput}
+                setCustomSkillInput={setCustomSkillInput}
+                customSkillMode={customSkillMode}
+                setCustomSkillMode={setCustomSkillMode}
+              />
             ) : null}
             {role === "employer" ? <EmployerFields companyName={companyName} setCompanyName={setCompanyName} /> : null}
             {role === "owner" ? <OwnerFields propertyName={propertyName} setPropertyName={setPropertyName} /> : null}
@@ -164,7 +199,7 @@ export default function Register() {
   );
 }
 
-function CandidateFields({ candidateName, setCandidateName, selectedSkills, toggleSkill }) {
+function CandidateFields({ candidateName, setCandidateName, selectedSkills, toggleSkill, availableSkills, customSkillInput, setCustomSkillInput, customSkillMode, setCustomSkillMode }) {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const age = useMemo(() => {
     if (!dateOfBirth) return "";
@@ -196,17 +231,36 @@ function CandidateFields({ candidateName, setCandidateName, selectedSkills, togg
       <div>
         <label className="text-sm font-semibold">Skills</label>
         <div className="mt-2 flex flex-wrap gap-2">
-          {skills.map((skill) => (
+          {availableSkills.map((skill) => (
             <button type="button" key={skill} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", selectedSkills.includes(skill) ? "border-signal bg-signal/15" : "border-border bg-muted text-muted-foreground")} onClick={() => toggleSkill(skill)}>
               {skill}
             </button>
           ))}
+          <button type="button" className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", customSkillMode ? "border-signal bg-signal/15" : "border-border bg-muted text-muted-foreground")} onClick={() => toggleSkill("Other")}>
+            Other
+          </button>
         </div>
+        {customSkillMode ? (
+          <div className="mt-3 space-y-2">
+            <input className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm" value={customSkillInput} onChange={(event) => setCustomSkillInput(event.target.value)} placeholder="Type custom skill and save it" />
+            <button type="button" className="rounded-xl border border-signal bg-signal/15 px-3 py-2 text-xs font-semibold text-foreground" onClick={() => {
+              const value = customSkillInput.trim();
+              if (!value) return;
+              setSelectedSkills((current) => (current.includes(value) ? current : [...current, value]));
+              setCustomSkillInput(value);
+              setCustomSkillMode(false);
+            }}>
+              Add custom skill
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Experience" name="experience" placeholder="2 years / Fresher" />
         <Field label="Availability" name="availability" placeholder="Immediate / 15 days" />
       </div>
+      <Field label="Preferred companies" name="companyPreferences" placeholder="Company names, comma separated" required />
+      <p className="-mt-3 text-xs text-muted-foreground">Candidates with the same skill and company preference can be grouped by admin and shared with that company.</p>
       <TextArea label="About Yourself" name="about" placeholder="Write a short profile summary" />
       <div className="grid gap-5 sm:grid-cols-3">
         <FileField label="Profile Photo" name="profilePhoto" accept="image/*" />

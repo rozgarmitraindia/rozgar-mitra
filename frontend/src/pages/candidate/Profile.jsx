@@ -184,6 +184,7 @@ export default function Profile() {
             <p><strong>Address:</strong> {user.address || "-"}</p>
             <p><strong>Skills:</strong> {(user.skills || []).join(", ") || "-"}</p>
             <p><strong>Experience:</strong> {user.experience || formatDuration(totalMonths)}</p>
+            <p><strong>Preferred companies:</strong> {(user.companyPreferences || []).join(", ") || "Not added"}</p>
             <p><strong>Availability:</strong> {user.availability || "-"}</p>
           </div>
         </div>

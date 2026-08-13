@@ -45,6 +45,12 @@ usersRouter.get("/summary", requireAuth, requireRole("candidate"), async (req, r
 usersRouter.patch("/profile", requireAuth, async (req, res) => {
   const { fullName, email, mobile } = req.body || {};
   const updates = {};
+  if (req.user.role === "candidate" && req.body.companyPreferences !== undefined) {
+    const source = Array.isArray(req.body.companyPreferences)
+      ? req.body.companyPreferences
+      : String(req.body.companyPreferences || "").split(",");
+    updates.companyPreferences = [...new Set(source.map((name) => String(name).trim()).filter(Boolean))].slice(0, 10);
+  }
   const editableTextFields = [
     "address",
     "pincode",

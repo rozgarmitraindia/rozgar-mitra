@@ -13,7 +13,7 @@ import { createNotification } from "../services/notification.service.js";
 
 export const employerRouter = Router();
 
-const candidateBioFields = "fullName email mobile dateOfBirth gender address pincode skills experience workExperienceMonths workExperiences availability about profilePhoto resume documents immutableId";
+const candidateBioFields = "fullName email mobile dateOfBirth gender address pincode skills companyPreferences experience workExperienceMonths workExperiences availability about profilePhoto resume documents immutableId";
 
 function populateApplication(query) {
   return query
@@ -399,6 +399,21 @@ employerRouter.patch("/jobs/:id/application-window", requireAuth, requireRole("e
   });
 });
 
+employerRouter.get("/shared-candidates", requireAuth, requireRole("employer"), async (req, res) => {
+  const candidates = await User.find({
+    role: "candidate",
+    "talentShares.employer": req.user._id,
+  }).select(`${candidateBioFields} talentShares`).lean();
+  const items = candidates.map((candidate) => {
+    const { talentShares = [], ...profile } = candidate;
+    return {
+      ...profile,
+      shareDetails: talentShares.filter((share) => String(share.employer) === String(req.user._id)),
+    };
+  });
+  return sendSuccess(res, { message: "Admin-shared candidates fetched", data: { items } });
+});
+
 employerRouter.get("/applications", requireAuth, requireRole("employer"), async (req, res) => {
   const filter = { employer: req.user._id };
   if (req.query.status) filter.status = req.query.status;
@@ -471,7 +486,23 @@ employerRouter.post("/applications/:id/interview", requireAuth, requireRole("emp
 employerRouter.post("/applications/:id/hire", requireAuth, requireRole("employer"), async (req, res) => {
   const app = await populateApplication(Application.findOne({ _id: req.params.id, employer: req.user._id }));
   if (!app) return sendError(res, { statusCode: 404, code: "APPLICATION_NOT_FOUND", message: "Application not found" });
+  if (app.status === "hired") return sendError(res, { statusCode: 409, code: "ALREADY_HIRED", message: "This candidate is already hired for this application." });
   if (["terminated", "rejected"].includes(app.status)) return sendError(res, { statusCode: 400, code: "APPLICATION_CLOSED", message: "This application is already closed" });
+  const activeEmployment = await Application.findOne({
+    _id: { $ne: app._id },
+    candidate: app.candidate._id,
+    status: "hired",
+    employer: { $ne: req.user._id },
+  }).populate("employer", "companyName fullName immutableId");
+  if (activeEmployment) {
+    const companyName = activeEmployment.employer?.companyName || activeEmployment.employer?.fullName || "another company";
+    return sendError(res, {
+      statusCode: 409,
+      code: "CANDIDATE_ALREADY_EMPLOYED",
+      message: `This candidate is currently hired at ${companyName} and cannot be hired by another company until that employment is ended.`,
+      details: { companyName },
+    });
+  }
   app.status = "hired";
   app.offer = req.body;
   app.hiredAt = new Date();

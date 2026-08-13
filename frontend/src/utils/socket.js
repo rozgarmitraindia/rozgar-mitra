@@ -11,7 +11,7 @@ function resolveSocketUrl() {
       const url = new URL(apiBase);
       return `${url.protocol}//${url.host}`;
     } catch {
-      return "http://127.0.0.1:3000";
+      return "https://rozgar-mitra-india.onrender.com";
     }
   }
   return window.location.origin;

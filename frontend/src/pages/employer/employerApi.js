@@ -29,6 +29,11 @@ export async function interviewApplicant(applicationId, payload = {}) {
   });
 }
 
+export async function fetchSharedCandidates() {
+  const result = await apiFetch("/employer/shared-candidates");
+  return result.data?.items || [];
+}
+
 export async function shortlistApplicant(applicationId) {
   return apiFetch(`/employer/applications/${applicationId}/shortlist`, { method: "POST" });
 }

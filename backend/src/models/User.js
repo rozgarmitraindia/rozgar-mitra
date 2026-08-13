@@ -24,6 +24,14 @@ const workExperienceSchema = new mongoose.Schema({
   terminationReason: String,
 }, { timestamps: true });
 
+const talentShareSchema = new mongoose.Schema({
+  employer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  sharedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  skill: String,
+  companyPreference: String,
+  sharedAt: { type: Date, default: Date.now },
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
   role: { type: String, enum: ["candidate", "employer", "roomOwner", "admin", "superAdmin"], required: true },
   status: { type: String, enum: ["pending", "verified", "unverified", "rejected", "suspended"], default: "pending" },
@@ -40,6 +48,8 @@ const userSchema = new mongoose.Schema({
   address: String,
   pincode: String,
   skills: [String],
+  companyPreferences: [String],
+  talentShares: [talentShareSchema],
   experience: String,
   workExperienceMonths: { type: Number, default: 0 },
   workExperiences: [workExperienceSchema],

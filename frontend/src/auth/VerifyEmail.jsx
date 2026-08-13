@@ -27,11 +27,17 @@ export default function VerifyEmail() {
   }, [location.search, autoSubmitted]);
 
   async function submitVerify(emailValue = email, otpValue = otp) {
+    const normalizedEmail = String(emailValue || "").trim().toLowerCase();
+    const normalizedOtp = String(otpValue || "").replace(/\D/g, "").slice(0, 6);
+    if (!normalizedEmail || normalizedOtp.length !== 6) {
+      setError("Please enter your email and complete 6-digit OTP.");
+      return;
+    }
     setLoading(true);
     setError("");
     setMessage("");
     try {
-      const res = await apiFetch("/auth/verify-email-otp", { method: "POST", body: JSON.stringify({ email: emailValue, otp: otpValue }) });
+      const res = await apiFetch("/auth/verify-email-otp", { method: "POST", body: JSON.stringify({ email: normalizedEmail, otp: normalizedOtp }) });
       setMessage(res.message || "Verified");
       setTimeout(() => navigate("/login", { state: { info: "Email verified. You may login after admin approval." } }), 800);
     } catch (err) {
@@ -58,16 +64,18 @@ export default function VerifyEmail() {
   return (
     <section className="form-page">
       <div className="section-header">
-        <div className="section-label">Verify Email / ईमेल सत्यापित करें</div>
-        <h1 className="section-title">Account Verification / खाता सत्यापन</h1>
-        <p className="section-desc">Enter the 6-digit OTP sent to your email. / ईमेल पर भेजा गया 6-अंकों का OTP दर्ज करें।</p>
+        <div>
+          <div className="section-label">Verify Email / ईमेल सत्यापित करें</div>
+          <h1 className="section-title">Account Verification / खाता सत्यापन</h1>
+          <p className="section-desc">Enter the 6-digit OTP sent to your email. / ईमेल पर भेजा गया 6-अंकों का OTP दर्ज करें।</p>
+        </div>
       </div>
       <form className="form-card animated-card" onSubmit={(e) => { e.preventDefault(); submitVerify(); }}>
         {error ? <div className="login-error">{error}</div> : null}
         {message ? <div className="generated-id"><span>Status</span><input value={message} readOnly /></div> : null}
 
         <div className="form-group"><label className="form-label">Email / ईमेल</label><input className="form-input" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-        <div className="form-group"><label className="form-label">OTP / ओटीपी</label><input className="form-input" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6 digit OTP" required /></div>
+        <div className="form-group"><label className="form-label">OTP / ओटीपी</label><input className="form-input" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 digit OTP" inputMode="numeric" autoComplete="one-time-code" minLength={6} maxLength={6} required /></div>
         <button className="btn-primary" type="submit" disabled={loading}>{loading ? "Please wait..." : "Verify Email / सत्यापित करें"}</button>
         <button className="btn-secondary" type="button" disabled={loading} style={{ marginTop: 10 }} onClick={resend}>Resend OTP / फिर से भेजें</button>
       </form>

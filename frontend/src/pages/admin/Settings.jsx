@@ -13,6 +13,8 @@ export default function Settings() {
   const [adminMobile, setAdminMobile] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [skillSuggestions, setSkillSuggestions] = useState([]);
+  const [skillLoading, setSkillLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -23,6 +25,37 @@ export default function Settings() {
   useEffect(() => {
     if (success) successRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [success]);
+
+  async function loadSkillSuggestions() {
+    setSkillLoading(true);
+    try {
+      const result = await adminFetch("/admin/skills?status=pending");
+      const pending = result?.data?.pending || result?.pending || [];
+      setSkillSuggestions(pending);
+    } catch (err) {
+      setSkillSuggestions([]);
+      toast.show(err.message || "Unable to load skill suggestions", "error");
+    } finally {
+      setSkillLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadSkillSuggestions();
+  }, []);
+
+  async function handleSkillDecision(id, status) {
+    try {
+      const result = await adminFetch(`/admin/skills/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      toast.show(result.message || "Skill updated", status === "approved" ? "success" : "info");
+      setSkillSuggestions((current) => current.filter((item) => item._id !== id));
+    } catch (err) {
+      toast.show(err.message || "Unable to update skill", "error");
+    }
+  }
 
   async function createAdmin(event) {
     event.preventDefault();
@@ -69,6 +102,30 @@ export default function Settings() {
       </div>
 
       <div className="sidebar-divider" style={{ margin: "24px 0" }} />
+
+      <div className="section-label">Pending Skill Suggestions</div>
+      <div className="form-card" style={{ marginBottom: 24 }}>
+        {skillLoading ? (
+          <p className="text-sm text-muted-foreground">Loading suggestions...</p>
+        ) : skillSuggestions.length ? (
+          <div className="space-y-3">
+            {skillSuggestions.map((item) => (
+              <div key={item._id} className="flex flex-col gap-3 rounded-xl border border-border bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="font-semibold text-foreground">{item.displayName || item.name}</div>
+                  <div className="text-xs text-muted-foreground">Suggested by candidate • {new Date(item.createdAt).toLocaleDateString()}</div>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" className="btn-secondary" onClick={() => handleSkillDecision(item._id, "approved")}>Approve</button>
+                  <button type="button" className="btn-outline" onClick={() => handleSkillDecision(item._id, "rejected")}>Reject</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No pending skill suggestions right now.</p>
+        )}
+      </div>
 
       <div className="section-label">Create Admin</div>
       <form className="form-card" onSubmit={createAdmin}>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarCheck2, CheckCircle2, Download, ExternalLink, FileText, ImageIcon, RefreshCw, Users, X } from "lucide-react";
 import { useToast } from "../../contexts/ToastContext.jsx";
-import { fetchEmployerApplications, fireApplicant, hireApplicant, interviewApplicant, rejectApplicant, shortlistApplicant } from "./employerApi.js";
+import { fetchEmployerApplications, fetchSharedCandidates, fireApplicant, hireApplicant, interviewApplicant, rejectApplicant, shortlistApplicant } from "./employerApi.js";
 import { Button } from "../../components/ui/button.jsx";
 import { cn } from "../../lib/utils.js";
 
@@ -44,6 +44,7 @@ function mergeDocLinks(entries) {
 
 export default function EmployerApplications() {
   const [applications, setApplications] = useState([]);
+  const [sharedCandidates, setSharedCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState("");
@@ -58,7 +59,9 @@ export default function EmployerApplications() {
     setLoading(true);
     setError("");
     try {
-      setApplications(await fetchEmployerApplications());
+      const [applicationItems, sharedItems] = await Promise.all([fetchEmployerApplications(), fetchSharedCandidates()]);
+      setApplications(applicationItems);
+      setSharedCandidates(sharedItems);
     } catch (err) {
       setError(err.message || "Unable to load applications.");
     } finally {
@@ -153,6 +156,29 @@ export default function EmployerApplications() {
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         {error ? <div className="mb-6 rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm font-semibold text-destructive">{error}</div> : null}
+
+        {sharedCandidates.length ? (
+          <section className="mb-8 rounded-2xl border border-signal/30 bg-card p-5 shadow-float">
+            <div className="flex items-center gap-3">
+              <Users className="size-5 text-signal" />
+              <div><h2 className="font-display text-xl font-bold">Admin-shared talent</h2><p className="text-sm text-muted-foreground">Candidate groups matched by skill and company preference.</p></div>
+            </div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {sharedCandidates.map((candidate) => (
+                <article className="rounded-xl border border-border bg-surface p-4" key={candidate._id}>
+                  <h3 className="font-semibold">{candidate.fullName}</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">{candidate.immutableId} · {(candidate.skills || []).join(", ") || "Skills not listed"}</p>
+                  <p className="mt-3 text-sm">{candidate.email} · {candidate.mobile || "No mobile"}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">Shared for: {(candidate.shareDetails || []).map((share) => share.skill).filter(Boolean).join(", ") || "Talent match"}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {candidate.resume?.url ? <a className="btn-secondary" href={candidate.resume.url} target="_blank" rel="noreferrer">Resume</a> : null}
+                    {(candidate.documents || []).map((document, index) => document.url ? <a className="btn-secondary" href={document.url} target="_blank" rel="noreferrer" key={`${document.url}-${index}`}>{document.label || `Document ${index + 1}`}</a> : null)}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getSession, apiUpload } from "../../utils/auth.js";
+import { getSession, setSession, apiFetch, apiUpload } from "../../utils/auth.js";
 import { useToast } from "../../contexts/ToastContext.jsx";
 
 export default function EditProfile() {
@@ -12,6 +12,7 @@ export default function EditProfile() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const user = getSession()?.user || {};
+  const [companyPreferences, setCompanyPreferences] = useState((user.companyPreferences || []).join(", "));
   const profileRef = useRef(null);
   const resumeRef = useRef(null);
 
@@ -27,6 +28,27 @@ export default function EditProfile() {
       setMessage(`${type === "resume" ? "Resume" : "Profile photo"} uploaded successfully.`);
       toast.show(`${type === "resume" ? "Resume" : "Profile photo"} uploaded`, "success");
       navigate("/profile");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function savePreferences(event) {
+    event.preventDefault();
+    setUploading(true);
+    setError("");
+    try {
+      const result = await apiFetch("/user/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ companyPreferences: companyPreferences.split(",").map((name) => name.trim()).filter(Boolean) }),
+      });
+      const updatedUser = result.data?.user;
+      const session = getSession();
+      if (updatedUser && session) setSession({ ...session, user: updatedUser }, localStorage.getItem("rozgar_session") !== null);
+      setMessage("Company preferences updated successfully.");
+      toast.show("Company preferences updated", "success");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -63,8 +85,12 @@ export default function EditProfile() {
           </button>
         </div>
 
-        <div className="section-label" style={{ marginTop: 24 }}>Account fields</div>
-        <p className="detail-desc">Full profile editing is not yet supported by the backend. Use the profile page to view your current details.</p>
+        <form className="form-group" style={{ marginTop: 24 }} onSubmit={savePreferences}>
+          <label className="form-label">Preferred companies</label>
+          <input className="form-input" value={companyPreferences} onChange={(event) => setCompanyPreferences(event.target.value)} placeholder="Company names, comma separated" required />
+          <p className="detail-desc">Admin uses your skills and these preferences to create matching candidate groups.</p>
+          <button className="btn-search" disabled={uploading} type="submit">{uploading ? "Saving..." : "Save Preferences"}</button>
+        </form>
       </div>
     </section>
   );

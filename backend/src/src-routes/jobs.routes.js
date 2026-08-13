@@ -60,6 +60,24 @@ jobsRouter.get("/:id", optionalAuth, async (req, res) => {
 jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyncHandler(async (req, res) => {
   const job = await Job.findById(req.params.id);
   if (!job || job.status !== "live") return sendError(res, { statusCode: 404, code: "JOB_NOT_LIVE", message: "Job not live" });
+  const activeEmployment = await Application.findOne({
+    candidate: req.user._id,
+    status: "hired",
+    employer: { $ne: job.employer },
+  }).populate("employer", "companyName fullName immutableId");
+  if (activeEmployment) {
+    const companyName = activeEmployment.employer?.companyName || activeEmployment.employer?.fullName || "another company";
+    return sendError(res, {
+      statusCode: 409,
+      code: "ALREADY_EMPLOYED",
+      message: `You are currently hired at ${companyName}. You can apply to another company only after your current employment is ended.`,
+      details: {
+        applicationId: String(activeEmployment._id),
+        employerId: String(activeEmployment.employer?._id || activeEmployment.employer),
+        companyName,
+      },
+    });
+  }
   const now = new Date();
   if (job.applicationStartDate && now < job.applicationStartDate) {
     return sendError(res, { statusCode: 400, code: "APPLICATIONS_NOT_OPEN", message: "Applications are not open yet" });
