@@ -108,7 +108,7 @@ export default function Home() {
   }, []);
 
   return (
-    <>
+    <div className="home-page min-w-0 max-w-full overflow-x-clip">
       <section className="relative overflow-hidden bg-background">
         <div className="mesh-bg absolute inset-0" />
         <div className="rule-grid absolute inset-0 opacity-50" />
@@ -132,12 +132,12 @@ export default function Home() {
               <Link to="/jobs" className="relative grid h-10 place-items-center rounded-xl bg-gradient-signal text-sm font-semibold text-signal-foreground">Jobs</Link>
               <Link to="/rooms" className="grid h-10 place-items-center rounded-xl text-sm font-semibold text-muted-foreground transition hover:text-foreground">Rooms</Link>
             </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 p-2">
+            <div className="grid min-w-0 grid-cols-1 gap-2 p-2 sm:grid-cols-[minmax(0,1fr)_auto]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input className="h-12 rounded-xl border-transparent bg-muted pl-9" placeholder="Search role, city, company, or room area" />
               </div>
-              <Link to="/jobs"><Button variant="signal" size="xl">Search <ArrowRight className="size-4" /></Button></Link>
+              <Link className="min-w-0" to="/jobs"><Button className="w-full" variant="signal" size="xl">Search <ArrowRight className="size-4" /></Button></Link>
             </div>
           </motion.div>
 
@@ -240,14 +240,14 @@ export default function Home() {
           </div>
         </Reveal>
       </section>
-    </>
+    </div>
   );
 }
 
 function SectionHead({ title, subtitle, href }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
-      <div>
+    <div className="grid min-w-0 grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="min-w-0">
         <h2 className="font-display text-3xl font-bold">{title}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
       </div>
@@ -261,9 +261,9 @@ function LiveJobCard({ job }) {
   const skills = job.skills || job.tags || [job.role].filter(Boolean);
 
   return (
-    <article className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
+    <article className="flex h-full min-w-0 max-w-full flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 break-words">
           <Link to={`/jobs/${id}`} className="font-display text-lg font-semibold leading-tight hover:text-signal">{job.title}</Link>
           <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
             {job.companyName || job.company || job.employerName || "Company"}
@@ -293,9 +293,9 @@ function LiveRoomCard({ room }) {
   const amenities = room.amenities || room.tags || [room.roomType].filter(Boolean);
 
   return (
-    <article className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
+    <article className="flex h-full min-w-0 max-w-full flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 break-words">
           <Link to={`/rooms/${id}`} className="font-display text-lg font-semibold leading-tight hover:text-signal">{room.title || room.propertyName || "Verified room"}</Link>
           <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
             {room.ownerVerified || room.verificationStatus === "verified" ? "Owner verified" : "Owner check pending"}

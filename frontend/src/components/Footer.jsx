@@ -11,8 +11,8 @@ function BrandMark() {
 export default function Footer() {
   return (
     <footer className="border-t border-border bg-surface text-foreground">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
-        <div>
+      <div className="mx-auto grid min-w-0 max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="min-w-0">
           <BrandMark />
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">Rozgar Mitra India की official website—verified jobs, hiring और किराये के rooms के लिए भरोसेमंद platform.</p>
           <div className="mt-5 flex items-center gap-3">

@@ -86,6 +86,19 @@ textarea {
   font-weight: 800;
 }
 
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+@media (max-width: 359px) {
+  body {
+    min-width: 0;
+  }
+}
+
 .brand-logo-image {
   display: block;
   object-fit: contain;
