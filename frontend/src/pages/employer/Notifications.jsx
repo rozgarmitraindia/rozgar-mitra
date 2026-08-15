@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CheckCheck, Clock, RefreshCw } from "lucide-react";
+import { Bell, CheckCheck, Clock, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/button.jsx";
-import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "../../utils/notification.js";
+import { deleteAllNotifications, deleteNotification, fetchNotifications, markAllNotificationsRead, markNotificationRead } from "../../utils/notification.js";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { getSession } from "../../utils/auth.js";
 import { cn } from "../../lib/utils.js";
@@ -69,6 +69,34 @@ export default function EmployerNotifications() {
     }
   }
 
+  async function removeOne(item) {
+    if (!window.confirm(`Delete notification "${item.title || "Notification"}"?`)) return;
+    setBusy(`delete-${item._id}`);
+    try {
+      await deleteNotification(item._id);
+      setItems((current) => current.filter((row) => row._id !== item._id));
+      toast.show("Notification deleted", "success");
+    } catch (err) {
+      toast.show(err.message || "Unable to delete notification", "error");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function removeAll() {
+    if (!items.length || !window.confirm("Delete all your notifications?")) return;
+    setBusy("delete-all");
+    try {
+      await deleteAllNotifications();
+      setItems([]);
+      toast.show("All notifications deleted", "success");
+    } catch (err) {
+      toast.show(err.message || "Unable to delete notifications", "error");
+    } finally {
+      setBusy("");
+    }
+  }
+
   return (
     <section className="bg-background">
       <div className="mesh-bg border-b border-border">
@@ -85,6 +113,7 @@ export default function EmployerNotifications() {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={load}><RefreshCw className="size-4" />Refresh</Button>
               <Button variant="signal" disabled={!unreadCount || busy === "all"} onClick={readAll}><CheckCheck className="size-4" />Mark all read</Button>
+              <Button variant="outline" disabled={!items.length || busy === "delete-all"} onClick={removeAll}><Trash2 className="size-4" />{busy === "delete-all" ? "Deleting..." : "Delete all"}</Button>
             </div>
           </div>
         </div>
@@ -115,9 +144,14 @@ export default function EmployerNotifications() {
                     {formatDate(item.createdAt)}
                   </div>
                 </div>
-                <Button variant="outline" size="sm" disabled={item.status === "read" || busy === item._id} onClick={() => readOne(item)}>
-                  {busy === item._id ? "Updating..." : "Mark read"}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" disabled={item.status === "read" || busy === item._id} onClick={() => readOne(item)}>
+                    {busy === item._id ? "Updating..." : "Mark read"}
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={busy === `delete-${item._id}`} onClick={() => removeOne(item)}>
+                    <Trash2 className="size-4" />{busy === `delete-${item._id}` ? "Deleting..." : "Delete"}
+                  </Button>
+                </div>
               </div>
             </article>
           )) : null}

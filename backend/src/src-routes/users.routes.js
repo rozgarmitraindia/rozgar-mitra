@@ -4,6 +4,7 @@ import { Job } from "../models/Job.js";
 import { Room } from "../models/Room.js";
 import { Application } from "../models/Application.js";
 import { Notification } from "../models/Notification.js";
+import { Booking } from "../models/Booking.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { sendVerificationMail } from "../services/mail.service.js";
@@ -23,6 +24,35 @@ usersRouter.get("/saved", requireAuth, async (req, res) => {
 usersRouter.get("/applications", requireAuth, requireRole("candidate"), async (req, res) => {
   const items = await Application.find({ candidate: req.user._id }).populate("job employer").sort({ createdAt: -1 });
   return sendSuccess(res, { message: "Applications fetched", data: { items } });
+});
+
+usersRouter.get("/visit-requests", requireAuth, requireRole("candidate"), async (req, res) => {
+  const records = await Booking.find({ user: req.user._id })
+    .populate("room", "title propertyName publicId roomId address locality city rent photos status")
+    .populate("owner", "fullName propertyName companyName email mobile phone immutableId")
+    .sort({ createdAt: -1 }).lean();
+  const items = records.map((item) => {
+    const contactUnlocked = item.adminReviewStatus === "approved" && ["confirmed", "completed"].includes(item.visitStatus || item.status);
+    if (!contactUnlocked && item.owner) {
+      item.owner.email = undefined;
+      item.owner.mobile = undefined;
+      item.owner.phone = undefined;
+      item.owner.whatsapp = undefined;
+    }
+    return { ...item, contactUnlocked };
+  });
+  return sendSuccess(res, { message: "Visit requests fetched", data: { items } });
+});
+
+usersRouter.get("/booked-rooms", requireAuth, requireRole("candidate"), async (req, res) => {
+  const items = await Booking.find({ user: req.user._id, bookingStatus: { $in: ["booked", "released"] } })
+    .populate("room", "title propertyName publicId roomId address locality city rent maintenance deposit photos status maxOccupancy")
+    .populate("owner", "fullName propertyName companyName email mobile phone whatsapp immutableId")
+    .sort({ updatedAt: -1 });
+  return sendSuccess(res, {
+    message: "Booked rooms fetched",
+    data: { items, activeBooking: items.find((item) => item.bookingStatus === "booked") || null },
+  });
 });
 
 usersRouter.get("/summary", requireAuth, requireRole("candidate"), async (req, res) => {

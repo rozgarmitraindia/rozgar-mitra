@@ -140,6 +140,15 @@ function ConfirmBookingModal({ item, onClose, onConfirm }) {
   const [assignedUnit, setAssignedUnit] = useState("");
   const [assignedBed, setAssignedBed] = useState("");
   const [note, setNote] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+  const roomRent = Number(String(item.room?.rent || "").replace(/[^\d.]/g, "")) || 0;
+  const roomMaintenance = Number(String(item.room?.maintenance || "").replace(/[^\d.]/g, "")) || 0;
+  const roomDeposit = Number(String(item.room?.deposit || "").replace(/[^\d.]/g, "")) || 0;
+  const [rentStartDate, setRentStartDate] = useState(today);
+  const [monthlyRent, setMonthlyRent] = useState(roomRent);
+  const [monthlyMaintenance, setMonthlyMaintenance] = useState(roomMaintenance);
+  const [securityDeposit, setSecurityDeposit] = useState(roomDeposit);
+  const [rentDueDay, setRentDueDay] = useState(Math.min(28, new Date().getDate()));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const available = Math.max(0, Number(item.room?.availableOccupancy ?? item.room?.maxOccupancy ?? 1));
@@ -152,7 +161,8 @@ function ConfirmBookingModal({ item, onClose, onConfirm }) {
     if (count > available) return setError(`Only ${available} occupancy left for this room.`);
     setSaving(true);
     try {
-      await onConfirm({ occupancy: count, assignedUnit, assignedBed, note });
+      if (!rentStartDate || Number(monthlyRent) <= 0) return setError("Rent start date and monthly rent are required.");
+      await onConfirm({ occupancy: count, assignedUnit, assignedBed, note, rentStartDate, monthlyRent: Number(monthlyRent), monthlyMaintenance: Number(monthlyMaintenance || 0), securityDeposit: Number(securityDeposit || 0), rentDueDay: Number(rentDueDay) });
     } catch (err) {
       setError(err.message || "Unable to confirm booking.");
     } finally {
@@ -183,6 +193,26 @@ function ConfirmBookingModal({ item, onClose, onConfirm }) {
           <label className="form-group">
             <span className="form-label">Assigned bed</span>
             <input className="form-input" value={assignedBed} onChange={(event) => setAssignedBed(event.target.value)} placeholder="Bed 2 / Lower bunk" />
+          </label>
+          <label className="form-group">
+            <span className="form-label">Rent start date</span>
+            <input className="form-input" type="date" value={rentStartDate} onChange={(event) => { setRentStartDate(event.target.value); setRentDueDay(Math.min(28, Number(event.target.value.slice(-2)) || 1)); }} required />
+          </label>
+          <label className="form-group">
+            <span className="form-label">Monthly room rent</span>
+            <input className="form-input" type="number" min="1" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} required />
+          </label>
+          <label className="form-group">
+            <span className="form-label">Monthly maintenance</span>
+            <input className="form-input" type="number" min="0" value={monthlyMaintenance} onChange={(event) => setMonthlyMaintenance(event.target.value)} />
+          </label>
+          <label className="form-group">
+            <span className="form-label">Security deposit</span>
+            <input className="form-input" type="number" min="0" value={securityDeposit} onChange={(event) => setSecurityDeposit(event.target.value)} />
+          </label>
+          <label className="form-group">
+            <span className="form-label">Monthly due day (1-28)</span>
+            <input className="form-input" type="number" min="1" max="28" value={rentDueDay} onChange={(event) => setRentDueDay(event.target.value)} required />
           </label>
           <label className="form-group admin-edit-wide">
             <span className="form-label">Booking note</span>

@@ -78,6 +78,14 @@ export async function markAllAsRead(userId) {
   return result;
 }
 
+export async function deleteUserNotification(userId, id) {
+  return Notification.findOneAndDelete({ _id: id, recipient: userId });
+}
+
+export async function deleteAllUserNotifications(userId) {
+  return Notification.deleteMany({ recipient: userId });
+}
+
 export async function deleteNotificationById(id) {
   return Notification.findByIdAndDelete(id);
 }

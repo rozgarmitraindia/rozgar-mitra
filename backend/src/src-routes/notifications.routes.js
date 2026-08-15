@@ -3,7 +3,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getFirebaseAdmin } from "../services/firebase.service.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { User } from "../models/User.js";
-import { createNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead } from "../services/notification.service.js";
+import { createNotification, deleteAllUserNotifications, deleteUserNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead } from "../services/notification.service.js";
 
 async function sendMulticast(firebase, tokens, payload) {
   if (!tokens || tokens.length === 0) return [];
@@ -43,6 +43,17 @@ notificationsRouter.patch("/:id/read", requireAuth, async (req, res) => {
 notificationsRouter.patch("/read-all", requireAuth, async (req, res) => {
   await markAllAsRead(req.user._id);
   return sendSuccess(res, { message: "All notifications marked as read" });
+});
+
+notificationsRouter.delete("/all", requireAuth, async (req, res) => {
+  const result = await deleteAllUserNotifications(req.user._id);
+  return sendSuccess(res, { message: "All your notifications deleted", data: { deletedCount: result.deletedCount || 0 } });
+});
+
+notificationsRouter.delete("/:id", requireAuth, async (req, res) => {
+  const item = await deleteUserNotification(req.user._id, req.params.id);
+  if (!item) return sendError(res, { statusCode: 404, code: "NOTIFICATION_NOT_FOUND", message: "Notification not found" });
+  return sendSuccess(res, { message: "Notification deleted", data: { id: String(item._id) } });
 });
 
 notificationsRouter.post("/push", requireAuth, async (req, res) => {

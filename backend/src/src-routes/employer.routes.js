@@ -5,7 +5,7 @@ import { Room } from "../models/Room.js";
 import { Application } from "../models/Application.js";
 import { Booking } from "../models/Booking.js";
 import { makeImmutableId } from "../utils/id.js";
-import { renderEmailTemplate, sendMail } from "../services/mail.service.js";
+import { renderEmailTemplate, resolveFrontendUrl, sendMail } from "../services/mail.service.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { getFirebaseAdmin } from "../services/firebase.service.js";
 import { User } from "../models/User.js";
@@ -142,7 +142,7 @@ async function notifyRoomCandidate({ booking, title, body, type, details = [] })
         headline: title,
         body,
         buttonText: "Open room",
-        buttonLink: `${process.env.FRONTEND_URL || "http://localhost:5173"}/rooms/${booking.room?._id || booking.room}`,
+        buttonLink: `${resolveFrontendUrl()}/rooms/${booking.room?._id || booking.room}`,
         details,
       }),
     });
@@ -668,6 +668,7 @@ employerRouter.delete("/rooms/:id", requireAuth, requireRole("roomOwner"), async
 employerRouter.get("/visit-requests", requireAuth, requireRole("roomOwner"), async (req, res) => {
   const items = await Booking.find({
     owner: req.user._id,
+    adminReviewStatus: "approved",
     $or: [
       { visitStatus: { $in: ["pending", "confirmed", "rejected", "cancelled"] } },
       { visitStatus: { $exists: false }, status: { $in: ["pending", "confirmed", "rejected", "cancelled"] } },
@@ -698,6 +699,9 @@ employerRouter.post("/visit-requests/:id/respond", requireAuth, requireRole("roo
     .populate("user", "fullName email mobile phone dateOfBirth gender address pincode skills experience workExperienceMonths workExperiences availability about profilePhoto resume documents immutableId createdAt")
     .populate("room");
   if (!booking) return sendError(res, { statusCode: 404, code: "BOOKING_NOT_FOUND", message: "Visit request not found" });
+  if (booking.adminReviewStatus !== "approved") {
+    return sendError(res, { statusCode: 403, code: "ADMIN_APPROVAL_REQUIRED", message: "Admin approval is required before responding to this visit request." });
+  }
   const { action, message, visitDate, visitTime, meetingUrl, locationAddress, supportContact } = req.body;
   if (action === "accept") {
     booking.status = "confirmed";
@@ -730,7 +734,7 @@ employerRouter.post("/visit-requests/:id/respond", requireAuth, requireRole("roo
       headline: `Visit request ${booking.status}`,
       body: `Your visit request for ${booking.room.title || booking.room.propertyName || "the room"} has been updated by the room owner.`,
       buttonText: "Open Rozgar Mitra",
-      buttonLink: `${process.env.FRONTEND_URL || "http://localhost:5173"}/rooms/${booking.room._id}`,
+      buttonLink: `${resolveFrontendUrl()}/rooms/${booking.room._id}`,
       note: booking.message || "",
       details: [
         ["Room", booking.room.title || booking.room.propertyName || "-"],
@@ -774,6 +778,30 @@ employerRouter.post("/bookings/:id/confirm", requireAuth, requireRole("roomOwner
   booking.assignedUnit = String(req.body.assignedUnit || "").trim();
   booking.assignedBed = String(req.body.assignedBed || "").trim();
   booking.bookingNote = String(req.body.note || "").trim();
+  const rentStartDate = String(req.body.rentStartDate || new Date().toISOString().slice(0, 10));
+  const monthlyRent = Number(req.body.monthlyRent ?? room.rent ?? 0);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(rentStartDate) || !Number.isFinite(monthlyRent) || monthlyRent <= 0) {
+    return sendError(res, { statusCode: 400, code: "INVALID_RENT_TERMS", message: "Valid rent start date and monthly rent are required" });
+  }
+
+  const activeRoomBooking = await Booking.findOne({
+    _id: { $ne: booking._id },
+    user: booking.user._id,
+    bookingStatus: "booked",
+  }).populate("room", "title propertyName publicId roomId");
+  if (activeRoomBooking) {
+    return sendError(res, {
+      statusCode: 409,
+      code: "CANDIDATE_ALREADY_HAS_ROOM",
+      message: `This candidate already has an active booking for ${activeRoomBooking.room?.title || activeRoomBooking.room?.propertyName || "another room"}.`,
+    });
+  }
+  booking.rentStartDate = rentStartDate;
+  booking.monthlyRent = monthlyRent;
+  booking.monthlyMaintenance = Math.max(0, Number(req.body.monthlyMaintenance ?? room.maintenance ?? 0) || 0);
+  booking.securityDeposit = Math.max(0, Number(req.body.securityDeposit ?? room.deposit ?? 0) || 0);
+  booking.rentDueDay = Math.min(28, Math.max(1, Number(req.body.rentDueDay || rentStartDate.slice(-2)) || 1));
+  booking.rentStatus = "active";
   await booking.save();
 
   room.occupiedOccupancy = capacity.occupied + requestedOccupancy;
@@ -793,9 +821,89 @@ employerRouter.post("/bookings/:id/confirm", requireAuth, requireRole("roomOwner
       ["Room ID", room.publicId || room.roomId || String(room._id)],
       ["Booked occupancy", String(requestedOccupancy)],
       ["Assigned room/bed", [booking.assignedUnit, booking.assignedBed].filter(Boolean).join(" / ") || "-"],
+      ["Rent starts", booking.rentStartDate],
+      ["Monthly rent", `₹${booking.monthlyRent}`],
+      ["Monthly maintenance", `₹${booking.monthlyMaintenance}`],
       ["Available occupancy left", String(room.availableOccupancy)],
     ],
   });
 
   return sendSuccess(res, { message: "Room booking confirmed", data: { booking, room } });
+});
+
+employerRouter.get("/rent-management", requireAuth, requireRole("roomOwner"), async (req, res) => {
+  const items = await Booking.find({ owner: req.user._id, bookingStatus: "booked" })
+    .populate("user", "fullName email mobile phone immutableId")
+    .populate("room", "title propertyName publicId roomId address city locality rent maintenance deposit photos")
+    .sort({ rentStartDate: -1, updatedAt: -1 });
+  await Promise.all(items.map(async (booking) => {
+    let changed = false;
+    if (!booking.rentStartDate) {
+      booking.rentStartDate = (booking.createdAt || new Date()).toISOString().slice(0, 10);
+      changed = true;
+    }
+    if (!Number(booking.monthlyRent || 0)) {
+      booking.monthlyRent = Number(String(booking.room?.rent || "").replace(/[^\d.]/g, "")) || 0;
+      changed = true;
+    }
+    if (!Number(booking.monthlyMaintenance || 0) && booking.room?.maintenance) {
+      booking.monthlyMaintenance = Number(String(booking.room.maintenance).replace(/[^\d.]/g, "")) || 0;
+      changed = true;
+    }
+    if (!Number(booking.securityDeposit || 0) && booking.room?.deposit) {
+      booking.securityDeposit = Number(String(booking.room.deposit).replace(/[^\d.]/g, "")) || 0;
+      changed = true;
+    }
+    if (!booking.rentDueDay) {
+      booking.rentDueDay = Math.min(28, Math.max(1, Number(booking.rentStartDate.slice(-2)) || 1));
+      changed = true;
+    }
+    if (changed) await booking.save();
+  }));
+  return sendSuccess(res, { message: "Booked room rent records fetched", data: { items } });
+});
+
+employerRouter.post("/rent-management/:id/payments", requireAuth, requireRole("roomOwner"), async (req, res) => {
+  const booking = await Booking.findOne({ _id: req.params.id, owner: req.user._id, bookingStatus: "booked" });
+  if (!booking) return sendError(res, { statusCode: 404, code: "BOOKING_NOT_FOUND", message: "Booked room record not found" });
+  const amount = Number(req.body.amount);
+  const billingMonth = String(req.body.billingMonth || "").trim();
+  if (!Number.isFinite(amount) || amount <= 0 || !/^\d{4}-\d{2}$/.test(billingMonth)) {
+    return sendError(res, { statusCode: 400, code: "INVALID_PAYMENT", message: "Valid billing month and payment amount are required" });
+  }
+  booking.rentPayments.push({
+    billingMonth,
+    amount,
+    paidOn: req.body.paidOn ? new Date(req.body.paidOn) : new Date(),
+    method: ["cash", "upi", "bank", "other"].includes(req.body.method) ? req.body.method : "cash",
+    note: String(req.body.note || "").trim(),
+  });
+  await booking.save();
+  return sendSuccess(res, { message: "Rent payment recorded", data: { booking } });
+});
+
+employerRouter.post("/rent-management/:id/reminder", requireAuth, requireRole("roomOwner"), async (req, res) => {
+  const booking = await Booking.findOne({ _id: req.params.id, owner: req.user._id, bookingStatus: "booked" })
+    .populate("user", "fullName email mobile immutableId")
+    .populate("room", "title propertyName publicId roomId");
+  if (!booking) return sendError(res, { statusCode: 404, code: "BOOKING_NOT_FOUND", message: "Booked room record not found" });
+  if (!booking.user?.email) return sendError(res, { statusCode: 400, code: "TENANT_EMAIL_MISSING", message: "Tenant email is not available" });
+  const billingMonth = String(req.body.billingMonth || new Date().toISOString().slice(0, 7));
+  const amount = Math.max(0, Number(req.body.amount ?? (Number(booking.monthlyRent || 0) + Number(booking.monthlyMaintenance || 0))));
+  const dueDate = String(req.body.dueDate || "").trim() || `${billingMonth}-${String(booking.rentDueDay || 1).padStart(2, "0")}`;
+  await notifyRoomCandidate({
+    booking,
+    title: "Monthly room rent reminder",
+    body: `Rent reminder for ${booking.room?.title || booking.room?.propertyName || "your booked room"}. Amount due: ₹${amount}.`,
+    type: "room_rent_reminder",
+    details: [
+      ["Billing month", billingMonth],
+      ["Rent + maintenance", `₹${amount}`],
+      ["Due date", dueDate],
+      ["Room ID", booking.room?.publicId || booking.room?.roomId || "-"],
+    ],
+  });
+  booking.rentReminders.push({ billingMonth, amount, sentAt: new Date(), channel: "email" });
+  await booking.save();
+  return sendSuccess(res, { message: "Rent reminder sent by email and notification", data: { sentTo: booking.user.email } });
 });

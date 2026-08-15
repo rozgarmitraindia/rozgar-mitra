@@ -95,6 +95,10 @@ export default function JobDetails() {
       navigate("/login", { state: { from: `/jobs/${jobId}`, role: "candidate", error: "Apply karne ke liye candidate login compulsory hai." } });
       return;
     }
+    if (job.employmentLocked) {
+      toast.show(`You are currently hired at ${job.currentCompanyName || "another company"}. Employment end hone ke baad hi doosri company mein apply kar sakte hain.`, "error");
+      return;
+    }
 
     setApplying(true);
     try {
@@ -135,6 +139,8 @@ export default function JobDetails() {
 
   const applyLabel = job.applied
     ? "Applied"
+    : job.employmentLocked
+      ? "Currently Employed"
     : applicationsNotOpen || applicationsClosed
       ? applicationWindowLabel
       : uploadingGovernmentId
@@ -163,7 +169,7 @@ export default function JobDetails() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 md:justify-end">
-              <Button variant="signal" size="lg" onClick={handleApply} disabled={applying || job.applied || applicationsNotOpen || applicationsClosed}>{applyLabel}</Button>
+              <Button variant="signal" size="lg" onClick={handleApply} disabled={applying || job.applied || job.employmentLocked || applicationsNotOpen || applicationsClosed}>{applyLabel}</Button>
               <Button variant="outline" size="lg" onClick={handleSave} disabled={saving}>{job.isSaved ? "Saved" : "Save"}</Button>
             </div>
           </div>
@@ -172,6 +178,7 @@ export default function JobDetails() {
 
       <section className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)] lg:items-start">
         <div className="grid gap-6">
+          {job.employmentLocked ? <div className="rounded-2xl border border-pending/30 bg-pending/10 p-5 text-sm font-semibold leading-6">You are currently hired at {job.currentCompanyName || "another company"}. Current employment end hone tak aap kisi दूसरी company की job में apply नहीं कर सकते.</div> : null}
           <SectionCard title="Job overview"><p className="text-base leading-8 text-muted-foreground">{job.description || job.about || "No full description available."}</p></SectionCard>
           <SectionCard title="Job details">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -246,7 +253,7 @@ export default function JobDetails() {
               </label>
               <div className="mt-6 grid gap-3">
                 <Button variant="outline" onClick={handleSave} disabled={saving}>{job.isSaved ? "Remove Save" : "Save Job"}</Button>
-                <Button variant="signal" onClick={handleApply} disabled={applying || applicationsNotOpen || applicationsClosed}>{applyLabel}</Button>
+                <Button variant="signal" onClick={handleApply} disabled={applying || job.applied || job.employmentLocked || applicationsNotOpen || applicationsClosed}>{applyLabel}</Button>
               </div>
               <div className="mt-6 rounded-xl bg-verified/10 p-5 text-xs leading-5 text-muted-foreground"><CheckCircle2 className="mb-3 size-4 text-verified" />Your uploaded ID, resume and profile documents will be visible to admin and this company in the applicants panel after you apply.</div>
             </>

@@ -4,7 +4,6 @@ import { Room } from "../models/Room.js";
 import { Booking } from "../models/Booking.js";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { User } from "../models/User.js";
-import { sendVisitRequestMail } from "../services/mail.service.js";
 import { createNotification } from "../services/notification.service.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 
@@ -46,8 +45,10 @@ function normalizeRoom(item, savedIds = []) {
     ownerName,
     ownerVerified: obj.ownerVerified ?? owner?.status === "verified",
     ownerPublicId: obj.ownerPublicId || obj.immutableOwnerId || owner?.immutableId,
-    ownerPhone: obj.ownerPhone || obj.contactNumber || owner?.mobile || owner?.companyPhone,
-    ownerWhatsapp: obj.ownerWhatsapp || owner?.whatsapp,
+    ownerPhone: null,
+    ownerWhatsapp: null,
+    contactNumber: null,
+    contactUnlocked: false,
     preferredContactTime: obj.preferredContactTime || "10am - 7pm",
     photos,
     amenities: obj.amenities || [],
@@ -93,12 +94,31 @@ roomsRouter.get("/:id", optionalAuth, async (req, res) => {
   item.views = Number(item.views || 0) + 1;
   await item.save();
   const obj = normalizeRoom(item, req.user ? (req.user.savedRooms || []).map(String) : []);
+  const approvedVisit = req.user?.role === "candidate"
+    ? await Booking.exists({ room: item._id, user: req.user._id, adminReviewStatus: "approved", visitStatus: { $in: ["confirmed", "completed"] } })
+    : null;
+  const ownsRoom = req.user?.role === "roomOwner" && String(item.owner?._id || item.owner) === String(req.user._id);
+  if (approvedVisit || ownsRoom) {
+    obj.ownerPhone = item.ownerPhone || item.contactNumber || item.owner?.mobile || item.owner?.companyPhone || null;
+    obj.ownerWhatsapp = item.ownerWhatsapp || item.owner?.whatsapp || null;
+    obj.contactNumber = obj.ownerPhone;
+    obj.contactUnlocked = true;
+  }
   obj.savedCount = await User.countDocuments({ savedRooms: item._id });
   obj.similarRooms = (await Room.find({ _id: { $ne: item._id }, status: "live", city: item.city }).limit(3).sort({ createdAt: -1 })).map((room) => normalizeRoom(room));
   return sendSuccess(res, { message: "Room fetched", data: obj });
 });
 
 roomsRouter.post("/:id/visit-requests", requireAuth, requireRole("candidate"), async (req, res) => {
+  const activeBooking = await Booking.findOne({ user: req.user._id, bookingStatus: "booked" })
+    .populate("room", "title propertyName publicId roomId");
+  if (activeBooking) {
+    return sendError(res, {
+      statusCode: 409,
+      code: "ACTIVE_ROOM_BOOKING",
+      message: `You already have an active booked room: ${activeBooking.room?.title || activeBooking.room?.propertyName || "Booked room"}.`,
+    });
+  }
   const room = await Room.findById(req.params.id);
   if (!room || room.status !== "live") return sendError(res, { statusCode: 404, code: "ROOM_NOT_LIVE", message: "Room not live" });
   const availableOccupancy = Math.max(0, Number(room.availableOccupancy ?? (Number(room.maxOccupancy || 1) - Number(room.occupiedOccupancy || 0))));
@@ -107,6 +127,16 @@ roomsRouter.post("/:id/visit-requests", requireAuth, requireRole("candidate"), a
     room.occupancyStatus = "full";
     await room.save();
     return sendError(res, { statusCode: 400, code: "ROOM_FULL", message: "This room is fully booked" });
+  }
+
+  const existingRequest = await Booking.findOne({
+    room: room._id,
+    user: req.user._id,
+    visitStatus: { $in: ["pending", "confirmed", "completed"] },
+    bookingStatus: { $ne: "released" },
+  });
+  if (existingRequest) {
+    return sendError(res, { statusCode: 409, code: "VISIT_REQUEST_EXISTS", message: "Your visit request for this room already exists." });
   }
 
   const session = await mongoose.startSession();
@@ -129,27 +159,20 @@ roomsRouter.post("/:id/visit-requests", requireAuth, requireRole("candidate"), a
     await room.save({ session });
 
     const notification = await createNotification({
-      recipient: room.owner,
-      title: "New room visit request",
-      body: `A candidate requested a visit for ${room.title || room.propertyName}.`,
+      targetRole: "admin",
+      title: "Room visit request needs review",
+      body: `A candidate requested a visit for ${room.title || room.propertyName}. Approve it before sending it to the room owner.`,
       channel: "inApp",
-      metadata: { type: "visit_request", roomId: room._id, bookingId: booking[0]._id },
+      metadata: { type: "visit_request_admin_review", roomId: room._id, bookingId: booking[0]._id },
       realtime: true,
     });
 
     await session.commitTransaction();
     session.endSession();
 
-    if (room.owner) {
-      const owner = await User.findById(room.owner).select("email");
-      if (owner?.email) {
-        await sendVisitRequestMail(owner, room, booking[0], req.user);
-      }
-    }
-
     return sendSuccess(res, {
       statusCode: 201,
-      message: "Visit request submitted",
+      message: "Visit request submitted for admin review",
       data: { booking: booking[0], notification },
     });
   } catch (error) {

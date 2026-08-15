@@ -19,6 +19,7 @@ const RoomOwnerDashboard = lazy(() => import("./pages/roomOwner/Dashboard.jsx"))
 const RoomOwnerRooms = lazy(() => import("./pages/roomOwner/Rooms.jsx"));
 const RoomOwnerVisitRequests = lazy(() => import("./pages/roomOwner/VisitRequests.jsx"));
 const RoomOwnerBookings = lazy(() => import("./pages/roomOwner/Bookings.jsx"));
+const RoomOwnerRentManagement = lazy(() => import("./pages/roomOwner/RentManagement.jsx"));
 const RoomOwnerNotifications = lazy(() => import("./pages/roomOwner/Notifications.jsx"));
 const RoomOwnerProfile = lazy(() => import("./pages/roomOwner/Profile.jsx"));
 const RoomOwnerSettings = lazy(() => import("./pages/roomOwner/Settings.jsx"));
@@ -39,6 +40,8 @@ const AppliedJobs = lazy(() => import("./pages/candidate/AppliedJobs.jsx"));
 const Interviews = lazy(() => import("./pages/candidate/Interviews.jsx"));
 const CandidateNotifications = lazy(() => import("./pages/candidate/Notifications.jsx"));
 const CandidateSettings = lazy(() => import("./pages/candidate/Settings.jsx"));
+const CandidateBookedRoom = lazy(() => import("./pages/candidate/BookedRoom.jsx"));
+const CandidateVisitRequests = lazy(() => import("./pages/candidate/VisitRequests.jsx"));
 import { RoleLayout } from "./components/RouteLayouts.jsx";
 import ProtectedRole from "./components/ProtectedRole.jsx";
 
@@ -48,6 +51,7 @@ import NotificationRegistrar from "./NotificationRegistrar.jsx";
 import WhatsAppFloat from "./components/WhatsAppFloat.jsx";
 import AutoTranslate from "./components/AutoTranslate.jsx";
 import FileSelectionFeedback from "./components/FileSelectionFeedback.jsx";
+import SeoManager from "./components/SeoManager.jsx";
 
 function protectedRoleLayout(role, element) {
   return (
@@ -62,6 +66,7 @@ export default function App() {
     <ToastProvider>
       <LanguageProvider>
         <NotificationRegistrar />
+        <SeoManager />
         <FileSelectionFeedback />
         <AutoTranslate>
           <Navbar />
@@ -93,6 +98,8 @@ export default function App() {
                   <Route path="/interviews" element={protectedRoleLayout("candidate", <Interviews />)} />
                   <Route path="/notifications" element={protectedRoleLayout("candidate", <CandidateNotifications />)} />
                   <Route path="/settings" element={protectedRoleLayout("candidate", <CandidateSettings />)} />
+                  <Route path="/candidate/booked-room" element={protectedRoleLayout("candidate", <CandidateBookedRoom />)} />
+                  <Route path="/candidate/visit-requests" element={protectedRoleLayout("candidate", <CandidateVisitRequests />)} />
                   <Route path="/employer/dashboard" element={protectedRoleLayout("employer", <EmployerDashboard />)} />
                   <Route path="/employer/jobs" element={protectedRoleLayout("employer", <EmployerJobs />)} />
                   <Route path="/employer/applications" element={protectedRoleLayout("employer", <EmployerApplications />)} />
@@ -104,6 +111,7 @@ export default function App() {
                   <Route path="/app/owner" element={protectedRoleLayout("roomOwner", <RoomOwnerRooms />)} />
                   <Route path="/room-owner/visit-requests" element={protectedRoleLayout("roomOwner", <RoomOwnerVisitRequests />)} />
                   <Route path="/room-owner/bookings" element={protectedRoleLayout("roomOwner", <RoomOwnerBookings />)} />
+                  <Route path="/room-owner/rent-management" element={protectedRoleLayout("roomOwner", <RoomOwnerRentManagement />)} />
                   <Route path="/room-owner/notifications" element={protectedRoleLayout("roomOwner", <RoomOwnerNotifications />)} />
                   <Route path="/room-owner/profile" element={protectedRoleLayout("roomOwner", <RoomOwnerProfile />)} />
                   <Route path="/room-owner/settings" element={protectedRoleLayout("roomOwner", <RoomOwnerSettings />)} />

@@ -322,7 +322,7 @@ export default function DetailPanel({ moduleKey, detail, activity, onClose, onSt
               key={status}
               onClick={() => onStatus(status, status === 'rejected')}
             >
-              {status.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}
+              {moduleKey === 'bookings' && status === 'confirmed' ? 'Approve & Send to Owner' : status.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}
             </button>
           ))
         ) : null}

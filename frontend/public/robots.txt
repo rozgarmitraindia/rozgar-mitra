@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /employer/
+Disallow: /room-owner/
+Disallow: /candidate/
+Disallow: /profile
+Disallow: /settings
+Disallow: /notifications
+
+Sitemap: https://rozgarmitra-india.com/sitemap.xml

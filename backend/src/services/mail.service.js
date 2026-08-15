@@ -3,8 +3,8 @@ import { sendPushNotification } from "./firebase.service.js";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-function resolveFrontendUrl() {
-  return (process.env.FRONTEND_URL || "http://localhost:5173").split(",")[0].replace(/\/$/, "");
+export function resolveFrontendUrl() {
+  return (process.env.MAIL_FRONTEND_URL || "https://rozgarmitra-india.com").trim().replace(/\/$/, "");
 }
 
 function escapeHtml(value = "") {

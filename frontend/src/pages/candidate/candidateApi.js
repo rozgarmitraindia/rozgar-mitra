@@ -87,6 +87,16 @@ export async function applyJob(jobId, payload = {}) {
   return apiFetch(`/jobs/${jobId}/applications`, { method: "POST", body: JSON.stringify(payload) });
 }
 
+export async function fetchCandidateVisitRequests() {
+  const result = await apiFetch("/user/visit-requests");
+  return result.data?.items || [];
+}
+
+export async function fetchCandidateBookedRooms() {
+  const result = await apiFetch("/user/booked-rooms");
+  return result.data || { items: [], activeBooking: null };
+}
+
 export async function uploadGovernmentId(file) {
   const form = new FormData();
   form.append("file", file);

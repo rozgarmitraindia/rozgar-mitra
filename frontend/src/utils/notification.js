@@ -41,6 +41,18 @@ export async function markAllNotificationsRead() {
   return result;
 }
 
+export async function deleteNotification(notificationId) {
+  const result = await apiFetch(`/notifications/${notificationId}`, { method: "DELETE" });
+  emitNotificationCountChange();
+  return result;
+}
+
+export async function deleteAllNotifications() {
+  const result = await apiFetch("/notifications/all", { method: "DELETE" });
+  emitNotificationCountChange(0);
+  return result;
+}
+
 export function subscribeNotifications(callback) {
   return subscribeSocketNotifications(callback);
 }

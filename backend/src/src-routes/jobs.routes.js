@@ -62,6 +62,17 @@ jobsRouter.get("/:id", optionalAuth, async (req, res) => {
   obj.isSaved = req.user ? (req.user.savedJobs || []).map(String).includes(String(item._id)) : false;
   obj.savedCount = await User.countDocuments({ savedJobs: item._id });
   obj.applied = req.user?.role === "candidate" ? Boolean(await Application.exists({ job: item._id, candidate: req.user._id })) : false;
+  if (req.user?.role === "candidate") {
+    const activeEmployment = await Application.findOne({
+      candidate: req.user._id,
+      status: "hired",
+      employer: { $ne: item.employer },
+    }).populate("employer", "companyName fullName immutableId");
+    if (activeEmployment) {
+      obj.employmentLocked = true;
+      obj.currentCompanyName = activeEmployment.employer?.companyName || activeEmployment.employer?.fullName || "another company";
+    }
+  }
   if (!obj.applied) {
     delete obj.contactNumber;
     obj.contactLocked = true;

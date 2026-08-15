@@ -57,7 +57,7 @@ async function start() {
 			process.exit(1);
 		});
 
-		const socketOrigins = `https://rozgarmitra-india.netlify.app,http://localhost:5173,http://localhost:5174,${process.env.FRONTEND_URL || ""},${process.env.CORS_ORIGINS || ""}`
+		const socketOrigins = `https://rozgarmitra-india.com,https://www.rozgarmitra-india.com,https://rozgarmitra-india.netlify.app,http://localhost:5173,http://localhost:5174,${process.env.FRONTEND_URL || ""},${process.env.CORS_ORIGINS || ""}`
 			.split(",")
 			.map((item) => item.trim().replace(/\/$/, ""))
 			.filter(Boolean);

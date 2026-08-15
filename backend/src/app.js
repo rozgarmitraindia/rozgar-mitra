@@ -24,7 +24,7 @@ app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
 // Allow multiple comma-separated frontend origins. Normalize by removing trailing slashes.
-const defaultOrigins = "https://rozgarmitra-india.netlify.app,http://localhost:5173,http://localhost:5174";
+const defaultOrigins = "https://rozgarmitra-india.com,https://www.rozgarmitra-india.com,https://rozgarmitra-india.netlify.app,http://localhost:5173,http://localhost:5174";
 const allowedOrigins = `${defaultOrigins},${process.env.FRONTEND_URL || ""},${process.env.CORS_ORIGINS || ""}`
   .split(",")
   .map((item) => item.trim().replace(/\/$/, ""))
@@ -43,6 +43,10 @@ app.use(
       return callback(new Error(`Not allowed by CORS: ${origin}`));
     },
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Accept", "Authorization", "Content-Type", "X-Requested-With", "X-Request-Id"],
+    exposedHeaders: ["X-Request-Id"],
+    maxAge: 86400,
   })
 );
 app.use(

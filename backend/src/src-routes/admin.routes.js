@@ -12,7 +12,7 @@ import { Booking } from "../models/Booking.js";
 import { Complaint } from "../models/Complaint.js";
 import { Notification } from "../models/Notification.js";
 import { Skill } from "../models/Skill.js";
-import { sendMail, sendStatusMail, sendAdminCredentialsMail } from "../services/mail.service.js";
+import { sendMail, sendStatusMail, sendAdminCredentialsMail, sendVisitRequestMail } from "../services/mail.service.js";
 import { createNotification } from "../services/notification.service.js";
 import { asyncHandler, sendError, sendSuccess } from "../utils/apiResponse.js";
 import { sanitizeUser } from "../utils/authStatus.js";
@@ -883,6 +883,43 @@ adminRouter.patch("/:type/:id/status", validate(statusSchema), asyncHandler(asyn
 
   const item = await config.model.findById(id);
   if (!item) return sendError(res, { statusCode: 404, code: "NOT_FOUND", message: "Not found" });
+
+  if (type === "bookings") {
+    if (!["confirmed", "rejected"].includes(status)) {
+      return sendError(res, { statusCode: 400, code: "INVALID_VISIT_REVIEW", message: "Admin can approve or reject a pending visit request." });
+    }
+    item.adminReviewStatus = status === "confirmed" ? "approved" : "rejected";
+    item.adminReviewedAt = new Date();
+    item.adminReviewedBy = req.user._id;
+    item.adminReason = reason || "";
+    item.status = status;
+    if (status === "rejected") item.visitStatus = "rejected";
+    await item.save();
+
+    const populated = await Booking.findById(item._id)
+      .populate("room")
+      .populate("owner", "fullName propertyName email mobile phone immutableId")
+      .populate("user", "fullName email mobile phone immutableId");
+    if (status === "confirmed") {
+      await createNotification({
+        recipient: populated.owner?._id,
+        title: "New admin-approved visit request",
+        body: `A candidate wants to visit ${populated.room?.title || populated.room?.propertyName || "your room"}. Please accept or reject the request.`,
+        metadata: { type: "visit_request", roomId: populated.room?._id, bookingId: populated._id },
+      });
+      if (populated.owner?.email) await sendVisitRequestMail(populated.owner, populated.room, populated, populated.user);
+    } else {
+      await createNotification({
+        recipient: populated.user?._id,
+        title: "Room visit request not approved",
+        body: reason || `Your visit request for ${populated.room?.title || populated.room?.propertyName || "the room"} was not approved.`,
+        metadata: { type: "visit_request_rejected", roomId: populated.room?._id, bookingId: populated._id },
+        sendEmail: true,
+      });
+    }
+    await createActivity(req, { action: "visit.admin-review", module: type, entity: item, status: item.adminReviewStatus, reason, metadata: { requestedStatus } });
+    return sendSuccess(res, { message: status === "confirmed" ? "Visit request approved and sent to room owner" : "Visit request rejected", data: { item: shapeItem(populated) } });
+  }
 
   item.status = status;
   item.adminReason = reason || "";

@@ -157,7 +157,7 @@ export default function RoomDetails() {
     setRequesting(true);
     try {
       await requestRoomVisit(roomId, { visitDate, visitTime: slot });
-      toast.show("Visit request submitted. Owner confirmation will arrive by notification.", "success");
+      toast.show("Visit request submitted for admin review. The owner will receive it after approval.", "success");
     } catch (err) {
       toast.show(err.message || "Unable to send visit request.", "error");
     } finally {
@@ -199,7 +199,7 @@ export default function RoomDetails() {
     return <section className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6"><h1 className="font-display text-3xl font-bold">This room is no longer listed</h1><Link to="/rooms"><Button className="mt-6" variant="signal">Browse rooms</Button></Link></section>;
   }
 
-  const showPhone = Boolean(session);
+  const showPhone = Boolean(room.contactUnlocked);
   const activePhoto = photos[active];
 
   return (
@@ -286,14 +286,14 @@ export default function RoomDetails() {
               <Button className="mt-6 w-full" variant="signal" size="xl" onClick={handleVisitRequest} disabled={requesting}>{requesting ? "Booking..." : "Book visit"}</Button>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={() => !session ? navigate("/login", { state: { from: `/rooms/${roomId}`, role: "candidate" } }) : toast.show("Owner chat will open soon.", "info")}><MessageCircle className="size-4" />Chat</Button>
-                <Button variant="outline" onClick={() => !session ? navigate("/login", { state: { from: `/rooms/${roomId}`, role: "candidate" } }) : null}><Phone className="size-4" />{showPhone ? room.ownerPhone || room.contactNumber || "Call" : maskPhone(room.ownerPhone || room.contactNumber)}</Button>
+                <Button variant="outline" disabled={!showPhone} title={showPhone ? "Owner contact" : "Contact unlocks after admin and owner approval"}><Phone className="size-4" />{showPhone ? room.ownerPhone || room.contactNumber || "Call" : "Contact locked"}</Button>
               </div>
               {room.ownerWhatsapp ? <a href={showPhone ? `https://wa.me/${String(room.ownerWhatsapp).replace(/\D/g, "")}` : undefined} onClick={(event) => { if (!showPhone) { event.preventDefault(); navigate("/login", { state: { from: `/rooms/${roomId}`, role: "candidate" } }); } }}><Button className="mt-2 w-full" variant="outline">WhatsApp {showPhone ? "" : maskPhone(room.ownerWhatsapp)}</Button></a> : null}
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button variant="ghost" onClick={handleSave} disabled={saving}><Heart className={cn("size-4", room.isSaved && "fill-current text-destructive")} />Save</Button>
                 <Button variant="ghost" onClick={copyLink}><Copy className="size-4" />Share</Button>
               </div>
-              <div className="mt-5 rounded-2xl bg-verified/10 p-4 text-sm text-muted-foreground">Visit slot owner confirm karega. Notification aur WhatsApp update milega.</div>
+              <div className="mt-5 rounded-2xl bg-verified/10 p-4 text-sm text-muted-foreground">पहले Admin request review करेगा। Room owner के accept करने के बाद ही contact number unlock होगा।</div>
             </aside>
           </div>
         </div>

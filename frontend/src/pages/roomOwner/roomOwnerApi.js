@@ -68,3 +68,16 @@ export async function confirmRoomBooking(bookingId, payload = {}) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function fetchRentManagement() {
+  const result = await apiFetch("/employer/rent-management");
+  return result.data?.items || [];
+}
+
+export async function recordRentPayment(bookingId, payload) {
+  return apiFetch(`/employer/rent-management/${bookingId}/payments`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function sendRentReminder(bookingId, payload) {
+  return apiFetch(`/employer/rent-management/${bookingId}/reminder`, { method: "POST", body: JSON.stringify(payload) });
+}
