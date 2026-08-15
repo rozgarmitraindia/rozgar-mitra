@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "../../contexts/ToastContext.jsx";
-import { fetchEmployerJobs, updateEmployerJobApplicationWindow } from "./employerApi.js";
+import { closeEmployerJob, deleteEmployerJob, fetchEmployerJobs, updateEmployerJobApplicationWindow } from "./employerApi.js";
 
 const emptyEdit = {
   applicationStartDate: "",
@@ -25,6 +25,7 @@ export default function EmployerJobs() {
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState(emptyEdit);
   const [saving, setSaving] = useState(false);
+  const [actionJobId, setActionJobId] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -71,6 +72,29 @@ export default function EmployerJobs() {
     }
   }
 
+  async function closeJob(job) {
+    if (!window.confirm(`Close "${job.title || "this job"}"? It will be removed from public jobs and no new candidate can apply.`)) return;
+    setActionJobId(job._id);
+    try {
+      const result = await closeEmployerJob(job._id, "Position closed by company");
+      const updated = result.data?.job || result.job;
+      setJobs((items) => items.map((item) => item._id === job._id ? { ...item, ...updated } : item));
+      toast.show(result.message || "Job closed", "success");
+    } catch (err) { toast.show(err.message || "Unable to close job", "error"); }
+    finally { setActionJobId(null); }
+  }
+
+  async function deleteJob(job) {
+    if (!window.confirm(`Permanently delete "${job.title || "this job"}"? Its applications will also be removed. This cannot be undone.`)) return;
+    setActionJobId(job._id);
+    try {
+      const result = await deleteEmployerJob(job._id);
+      setJobs((items) => items.filter((item) => item._id !== job._id));
+      toast.show(result.message || "Job deleted", "success");
+    } catch (err) { toast.show(err.message || "Unable to delete job", "error"); }
+    finally { setActionJobId(null); }
+  }
+
   return (
     <section className="section">
       <div className="section-header">
@@ -85,7 +109,7 @@ export default function EmployerJobs() {
       {error ? <div className="login-error">{error}</div> : null}
 
       <div className="filter-tabs">
-        {["all", "pending", "live", "rejected"].map((item) => (
+        {["all", "pending", "live", "closed", "rejected"].map((item) => (
           <button key={item} className={`filter-tab ${status === item ? "active" : ""}`} type="button" onClick={() => setStatus(item)}>
             {item === "all" ? "All posts" : item}
           </button>
@@ -123,6 +147,8 @@ export default function EmployerJobs() {
                     {job.status === "pending" ? <span className="section-desc">Pending admin review</span> : null}
                     {job.status === "live" ? <Link className="btn-secondary" to="/employer/applications">Manage applicants</Link> : null}
                     <button className="btn-search" type="button" onClick={() => openEdit(job)}>Edit dates</button>
+                    {job.status !== "closed" ? <button className="btn-secondary" type="button" disabled={actionJobId === job._id} onClick={() => closeJob(job)}>Close Job</button> : <span className="section-desc">Closed {job.closedAt ? new Date(job.closedAt).toLocaleDateString() : ""}</span>}
+                    <button className="btn-danger" type="button" disabled={actionJobId === job._id} onClick={() => deleteJob(job)}>{actionJobId === job._id ? "Please wait..." : "Delete Job"}</button>
                   </div>
                 </td>
               </tr>

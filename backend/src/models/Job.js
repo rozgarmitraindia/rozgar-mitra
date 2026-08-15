@@ -27,7 +27,9 @@ const jobSchema = new mongoose.Schema({
   interviewEndTime: String,
   interviewMode: { type: String, enum: ["remote", "physical", "hybrid"] },
   interviewDetails: String,
-  status: { type: String, enum: ["pending", "live", "rejected"], default: "pending" },
+  status: { type: String, enum: ["pending", "live", "closed", "rejected"], default: "pending" },
+  closedAt: Date,
+  closedReason: String,
   adminReason: String,
 }, { timestamps: true });
 

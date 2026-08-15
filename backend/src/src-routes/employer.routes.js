@@ -414,6 +414,29 @@ employerRouter.get("/shared-candidates", requireAuth, requireRole("employer"), a
   return sendSuccess(res, { message: "Admin-shared candidates fetched", data: { items } });
 });
 
+employerRouter.patch("/jobs/:id/close", requireAuth, requireRole("employer"), async (req, res) => {
+  const job = await Job.findOne({ _id: req.params.id, employer: req.user._id });
+  if (!job) return sendError(res, { statusCode: 404, code: "JOB_NOT_FOUND", message: "Job not found" });
+  if (job.status === "closed") return sendError(res, { statusCode: 400, code: "JOB_ALREADY_CLOSED", message: "This job is already closed" });
+  job.status = "closed";
+  job.closedAt = new Date();
+  job.closedReason = String(req.body.reason || "Position closed by company").trim();
+  await job.save();
+  return sendSuccess(res, { message: "Job closed successfully. New applications are now disabled.", data: { job } });
+});
+
+employerRouter.delete("/jobs/:id", requireAuth, requireRole("employer"), async (req, res) => {
+  const job = await Job.findOne({ _id: req.params.id, employer: req.user._id });
+  if (!job) return sendError(res, { statusCode: 404, code: "JOB_NOT_FOUND", message: "Job not found" });
+  const applicationCount = await Application.countDocuments({ job: job._id });
+  await Promise.all([
+    Application.deleteMany({ job: job._id, employer: req.user._id }),
+    User.updateMany({ savedJobs: job._id }, { $pull: { savedJobs: job._id } }),
+    Job.deleteOne({ _id: job._id, employer: req.user._id }),
+  ]);
+  return sendSuccess(res, { message: "Job post permanently deleted", data: { id: String(job._id), deletedApplications: applicationCount } });
+});
+
 employerRouter.get("/applications", requireAuth, requireRole("employer"), async (req, res) => {
   const filter = { employer: req.user._id };
   if (req.query.status) filter.status = req.query.status;

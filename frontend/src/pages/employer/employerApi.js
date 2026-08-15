@@ -17,6 +17,14 @@ export async function updateEmployerJobApplicationWindow(jobId, payload) {
   });
 }
 
+export async function closeEmployerJob(jobId, reason = "") {
+  return apiFetch(`/employer/jobs/${jobId}/close`, { method: "PATCH", body: JSON.stringify({ reason }) });
+}
+
+export async function deleteEmployerJob(jobId) {
+  return apiFetch(`/employer/jobs/${jobId}`, { method: "DELETE" });
+}
+
 export async function fetchEmployerApplications() {
   const result = await apiFetch("/employer/applications");
   return result.data?.items || [];
