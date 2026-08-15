@@ -48,8 +48,8 @@ export default function EmployerSettings() {
       if (nextUser && session?.token) {
         setSession({ ...session, user: nextUser, role: nextUser.role || session.role }, localStorage.getItem("rozgar_session") !== null);
       }
-      setMessage("Employer settings updated successfully.");
-      toast.show("Employer settings updated", "success");
+      setMessage("Company settings updated successfully.");
+      toast.show("Company settings updated", "success");
     } catch (err) {
       setError(err.message || "Unable to save settings.");
     } finally {
@@ -61,9 +61,9 @@ export default function EmployerSettings() {
     <section className="bg-background">
       <div className="mesh-bg border-b border-border">
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-          <div className="inline-flex rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Employer settings</div>
+          <div className="inline-flex rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Company settings</div>
           <h1 className="mt-4 font-display text-4xl font-bold">Company account details</h1>
-          <p className="mt-2 max-w-2xl text-muted-foreground">Update the public contact and verification profile used in your job posts and employer dashboard.</p>
+          <p className="mt-2 max-w-2xl text-muted-foreground">Update the public contact and verification profile used in your job posts and company dashboard.</p>
         </div>
       </div>
 

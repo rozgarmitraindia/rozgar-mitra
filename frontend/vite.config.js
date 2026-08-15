@@ -25,14 +25,14 @@ function configureQuietProxy(proxy) {
 export default ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const apiBase = env.VITE_API_BASE_URL || "https://rozgar-mitra-india.onrender.com/api";
-  let proxyTarget = "https://rozgar-mitra-india.onrender.com";
+  let proxyTarget = env.VITE_DEV_API_PROXY_TARGET || "http://127.0.0.1:3000";
 
   if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
     try {
       const url = new URL(apiBase);
       proxyTarget = `${url.protocol}//${url.host}`;
     } catch {
-      proxyTarget = "https://rozgar-mitra-india.onrender.com";
+      proxyTarget = env.VITE_DEV_API_PROXY_TARGET || "http://127.0.0.1:3000";
     }
   }
 

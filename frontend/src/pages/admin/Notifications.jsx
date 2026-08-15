@@ -6,7 +6,7 @@ import ListModule from "./ListModule.jsx";
 const audiences = [
   ["", "All active users", "Everyone with an active account"],
   ["candidate", "Candidates", "Job seekers and applicants"],
-  ["employer", "Employers", "Companies and hiring teams"],
+  ["employer", "Companies", "Companies and hiring teams"],
   ["roomOwner", "Room Owners", "PG, hotel and room partners"],
   ["admin", "Admins", "Internal admin operators"],
 ];

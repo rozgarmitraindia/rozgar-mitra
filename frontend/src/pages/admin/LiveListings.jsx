@@ -98,7 +98,7 @@ export default function LiveListings() {
   }
 
   async function saveEdit(values) {
-    const reason = window.prompt("Edit reason required. This will be sent to the owner/employer.");
+    const reason = window.prompt("Edit reason required. This will be sent to the owner/company.");
     if (!String(reason || "").trim()) return toast.show("Edit reason is compulsory", "error");
     try {
       await adminFetch(`/admin/${editing.type}/${editing.item._id}`, {
@@ -146,7 +146,7 @@ export default function LiveListings() {
               <p>{active === "jobs" ? item.companyName || item.employer?.companyName : item.propertyName || item.owner?.propertyName}</p>
             </div>
             <dl>
-              <div><dt>{active === "jobs" ? "Employer ID" : "Room Owner ID"}</dt><dd>{ownerIdFor(item, active)}</dd></div>
+              <div><dt>{active === "jobs" ? "Company ID" : "Room Owner ID"}</dt><dd>{ownerIdFor(item, active)}</dd></div>
               <div><dt>{active === "jobs" ? "Salary" : "Rent"}</dt><dd>{active === "jobs" ? item.salary || "-" : item.rent || "-"}</dd></div>
               <div><dt>Location</dt><dd>{item.address || item.companyLocation || "-"}</dd></div>
               <div><dt>Contact</dt><dd>{item.contactNumber || item.companyPhone || "-"}</dd></div>

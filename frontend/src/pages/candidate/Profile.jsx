@@ -240,7 +240,7 @@ export default function Profile() {
             })}
           </div>
         ) : (
-          <p className="detail-desc">No verified work experience yet. It will appear automatically when an employer hires you.</p>
+          <p className="detail-desc">No verified work experience yet. It will appear automatically when a company hires you.</p>
         )}
       </div>
     </section>

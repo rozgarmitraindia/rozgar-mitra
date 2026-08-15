@@ -165,7 +165,7 @@ export async function sendInterviewScheduledMail(candidate, application) {
     html: renderEmailTemplate({
       title: "Interview Scheduled",
       headline: `Interview scheduled for ${job.title || "your application"}`,
-      body: "Your interview has been scheduled by the employer. Please review the timing and instructions before joining.",
+      body: "Your interview has been scheduled by the company. Please review the timing and instructions before joining.",
       buttonText: "View application",
       buttonLink: `${frontend}/applied-jobs`,
       details: Object.entries(application.interview || {}).map(([key, value]) => [key, String(value || "-")]),
@@ -183,7 +183,7 @@ export async function sendApplicationDecisionMail(candidate, application, decisi
     html: renderEmailTemplate({
       title: "Application Update",
       headline: hired ? "Congratulations, you have been selected" : `Application update for ${job.title || "your application"}`,
-      body: hired ? "Great news. The employer has selected your application." : `Your application status has been updated to ${decision}.`,
+      body: hired ? "Great news. The company has selected your application." : `Your application status has been updated to ${decision}.`,
       buttonText: "View application",
       buttonLink: `${frontend}/applied-jobs`,
       note: reason,
@@ -261,7 +261,7 @@ export async function sendVerificationMail(user) {
       body: "Thanks for joining Rozgar Mitra. Use the verification code below or click the button to confirm your email address.",
       buttonText: "Verify my account",
       buttonLink: verifyLink,
-      note: "You can sign in once your email is verified and admin approval is complete.",
+      note: "You can sign in immediately after your email is verified.",
       details: [["Verification code", user.verificationOtp], ["Email", user.email || user.companyEmail || "-"]],
     }),
   });

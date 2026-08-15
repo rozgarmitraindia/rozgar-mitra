@@ -32,7 +32,7 @@ export default function Contact() {
       <form className="info-card" onSubmit={submit}>
         <div className="section-label">Contact</div>
         <h1 className="section-title">संपर्क करें / Contact Us</h1>
-        <p className="section-desc">Support, verification help, employer hiring and room listing assistance.</p>
+        <p className="section-desc">Support, verification help, company hiring and room listing assistance.</p>
         {error ? <div className="login-error" style={{ marginTop: 20 }}>{error}</div> : null}
         {success ? <div className="login-success" style={{ marginTop: 20 }}>{success}</div> : null}
         <div className="form-row" style={{ marginTop: 24 }}>

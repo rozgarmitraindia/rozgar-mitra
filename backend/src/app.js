@@ -24,9 +24,11 @@ app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
 // Allow multiple comma-separated frontend origins. Normalize by removing trailing slashes.
-const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
+const defaultOrigins = "https://rozgarmitra-india.netlify.app,http://localhost:5173,http://localhost:5174";
+const allowedOrigins = `${defaultOrigins},${process.env.FRONTEND_URL || ""},${process.env.CORS_ORIGINS || ""}`
   .split(",")
-  .map((item) => item.trim().replace(/\/$/, ""));
+  .map((item) => item.trim().replace(/\/$/, ""))
+  .filter(Boolean);
 
 app.use(helmet());
 app.use(
@@ -36,17 +38,6 @@ app.use(
       if (!origin) return callback(null, true);
       const normalized = origin.replace(/\/$/, "");
       if (allowedOrigins.includes(normalized)) return callback(null, true);
-
-      // Local origins are convenient during development but must never bypass the production allow-list.
-      try {
-        const parsed = new URL(normalized);
-        const host = parsed.hostname;
-        if (!isProduction() && (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]")) {
-          return callback(null, true);
-        }
-      } catch (e) {
-        // if URL parsing fails, fall through to deny
-      }
 
       console.warn('Blocked CORS origin:', origin);
       return callback(new Error(`Not allowed by CORS: ${origin}`));

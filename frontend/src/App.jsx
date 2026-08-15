@@ -47,6 +47,7 @@ import { ToastProvider } from "./contexts/ToastContext.jsx";
 import NotificationRegistrar from "./NotificationRegistrar.jsx";
 import WhatsAppFloat from "./components/WhatsAppFloat.jsx";
 import AutoTranslate from "./components/AutoTranslate.jsx";
+import FileSelectionFeedback from "./components/FileSelectionFeedback.jsx";
 
 function protectedRoleLayout(role, element) {
   return (
@@ -61,6 +62,7 @@ export default function App() {
     <ToastProvider>
       <LanguageProvider>
         <NotificationRegistrar />
+        <FileSelectionFeedback />
         <AutoTranslate>
           <Navbar />
           <main>

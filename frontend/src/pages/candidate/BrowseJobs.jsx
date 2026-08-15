@@ -142,7 +142,7 @@ function JobBrowseCard({ job, onSave }) {
         <div>
           <Link to={`/jobs/${id}`} className="font-display text-lg font-semibold leading-tight hover:text-signal">{job.title}</Link>
           <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-            {job.companyName || job.company || "Employer"}
+            {job.companyName || job.company || "Company"}
             {job.companyVerified || job.verificationStatus === "verified" ? <BadgeCheck className="size-4 text-verified" /> : null}
           </p>
         </div>

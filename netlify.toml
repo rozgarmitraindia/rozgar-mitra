@@ -1,0 +1,29 @@
+[build]
+  base = "frontend"
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  VITE_API_BASE_URL = "https://rozgar-mitra-india.onrender.com/api"
+  VITE_BACKEND_WS_URL = "wss://rozgar-mitra-india.onrender.com"
+
+# Same-origin API fallback. The production bundle normally calls Render directly,
+# while this proxy keeps /api links and future relative requests working.
+[[redirects]]
+  from = "/api/*"
+  to = "https://rozgar-mitra-india.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+# React Router SPA fallback must remain after the API proxy.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

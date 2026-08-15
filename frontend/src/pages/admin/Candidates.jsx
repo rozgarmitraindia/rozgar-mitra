@@ -39,7 +39,7 @@ export default function Candidates() {
 
   async function shareGroup(group) {
     const employerId = selectedEmployers[group.key];
-    if (!employerId) return toast.show("Please select a company employer.", "error");
+    if (!employerId) return toast.show("Please select a company.", "error");
     setSharing(group.key);
     try {
       const result = await adminFetch("/admin/talent/share", {
@@ -66,7 +66,7 @@ export default function Candidates() {
           <div>
             <div className="section-label">Talent grouping</div>
             <h1 className="form-title">Skill + company preference groups</h1>
-            <p className="section-desc">Candidates with the same skill and preferred company appear together. Share the complete group with a verified employer.</p>
+            <p className="section-desc">Candidates with the same skill and preferred company appear together. Share the complete group with a verified company.</p>
           </div>
           <button className="btn-secondary admin-icon-button" type="button" onClick={loadGroups} disabled={loading}><RefreshCw size={16} />Refresh</button>
         </div>
@@ -87,7 +87,7 @@ export default function Candidates() {
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
                 <select className="form-select" value={selectedEmployers[group.key] || ""} onChange={(event) => setSelectedEmployers((current) => ({ ...current, [group.key]: event.target.value }))}>
-                  <option value="">Select verified employer</option>
+                  <option value="">Select verified company</option>
                   {employers.map((employer) => <option value={employer._id} key={employer._id}>{employer.companyName || employer.fullName} ({employer.immutableId})</option>)}
                 </select>
                 <button className="btn-search" type="button" disabled={sharing === group.key} onClick={() => shareGroup(group)}><Send size={15} />{sharing === group.key ? "Sharing..." : `Share all ${group.count}`}</button>

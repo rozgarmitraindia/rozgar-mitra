@@ -17,7 +17,15 @@ export function validateEnvironment() {
   if (process.env.JWT_REFRESH_SECRET) assertStrongSecret("JWT_REFRESH_SECRET");
   if (production) {
     const origins = process.env.FRONTEND_URL.split(",").map((value) => value.trim());
-    if (origins.some((origin) => !origin.startsWith("https://"))) throw new Error("FRONTEND_URL must use HTTPS in production.");
+    const insecurePublicOrigin = origins.find((origin) => {
+      try {
+        const url = new URL(origin);
+        return url.protocol !== "https:" && !["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+      } catch {
+        return true;
+      }
+    });
+    if (insecurePublicOrigin) throw new Error("Public FRONTEND_URL origins must use HTTPS in production (HTTP is only allowed for localhost development).");
     if (process.env.RESEND_API_KEY && !process.env.MAIL_FROM) throw new Error("MAIL_FROM is required when RESEND_API_KEY is configured.");
   }
 }
@@ -25,4 +33,3 @@ export function validateEnvironment() {
 export function isProduction() {
   return production;
 }
-

@@ -7,7 +7,8 @@ Copy `backend/.env.example` to `backend/.env`. For production, set at least:
 - `NODE_ENV=production`
 - `MONGODB_URI` to a managed MongoDB replica set/Atlas connection
 - `JWT_SECRET` and `JWT_REFRESH_SECRET` to independent random values of at least 32 characters
-- `FRONTEND_URL` to the public HTTPS origin (comma-separated when more than one is required)
+- `FRONTEND_URL=https://rozgarmitra-india.netlify.app` as the single canonical frontend URL used in links and emails.
+- `CORS_ORIGINS` for any additional comma-separated browser origins, such as `http://localhost:5173,http://localhost:5174`.
 - `BACKEND_URL` to the public HTTPS API origin
 - Cloudinary, Resend and Firebase credentials for uploads, email and push notifications
 
@@ -15,13 +16,34 @@ Never commit `.env` files. Rotate any secret that has previously been committed 
 
 ## Deploy
 
+### Netlify frontend
+
+The repository `netlify.toml` builds `frontend/` and pins these production endpoints:
+
+- API: `https://rozgar-mitra-india.onrender.com/api`
+- Socket.IO: `https://rozgar-mitra-india.onrender.com`
+
+It also includes an `/api/*` reverse-proxy fallback and the React Router SPA redirect.
+
+### Render backend
+
+The repository `render.yaml` configures the backend service and sets:
+
+- `FRONTEND_URL=https://rozgarmitra-india.netlify.app`
+- `BACKEND_URL=https://rozgar-mitra-india.onrender.com`
+- `NODE_ENV=production`
+
+Add the secret values marked `sync: false` in the Render dashboard. If deploying
+the existing Render service without the blueprint, set the same three public
+environment variables manually and redeploy.
+
 With Docker available:
 
 ```sh
 docker compose up --build -d
 ```
 
-The frontend listens on port `8080`; terminate TLS at the load balancer/reverse proxy. `/api` and Socket.IO are proxied internally to the backend. For separate frontend/backend hosting, build the frontend with `VITE_API_BASE_URL=https://api.example.com/api` and set both public HTTPS origins in the backend environment.
+The frontend listens on port `8080`; terminate TLS at the load balancer/reverse proxy. `/api` and Socket.IO are proxied internally to the backend. Local Vite development should also use `VITE_API_BASE_URL=/api`, which uses the Vite proxy and avoids cross-origin browser requests. For separate frontend/backend hosting, build the production frontend with `VITE_API_BASE_URL=https://api.example.com/api` and set every browser origin in the backend `FRONTEND_URL`.
 
 ## Release checks
 

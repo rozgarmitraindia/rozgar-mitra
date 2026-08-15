@@ -39,7 +39,7 @@ export default function Interviews() {
           <thead>
             <tr>
               <th>Job</th>
-              <th>Employer</th>
+              <th>Company</th>
               <th>Date</th>
               <th>Time</th>
               <th>Mode / Location</th>

@@ -39,7 +39,7 @@ const modules = {
   },
   employers: {
     model: User,
-    label: "Employer",
+    label: "Company",
     filter: { role: "employer" },
     search: ["companyName", "email", "companyEmail", "companyPhone", "immutableId", "companyLocation"],
     statuses: userStatuses,
@@ -797,9 +797,9 @@ adminRouter.post("/talent/share", asyncHandler(async (req, res) => {
   const candidateIds = Array.isArray(req.body.candidateIds) ? [...new Set(req.body.candidateIds.map(String))] : [];
   const skill = String(req.body.skill || "").trim();
   const companyPreference = String(req.body.companyPreference || "").trim();
-  if (!employerId || !candidateIds.length) return sendError(res, { statusCode: 400, code: "SHARE_DETAILS_REQUIRED", message: "Employer and at least one candidate are required." });
+  if (!employerId || !candidateIds.length) return sendError(res, { statusCode: 400, code: "SHARE_DETAILS_REQUIRED", message: "Company and at least one candidate are required." });
   const employer = await User.findOne({ _id: employerId, role: "employer", status: "verified" });
-  if (!employer) return sendError(res, { statusCode: 404, code: "EMPLOYER_NOT_FOUND", message: "Verified employer not found." });
+  if (!employer) return sendError(res, { statusCode: 404, code: "EMPLOYER_NOT_FOUND", message: "Verified company not found." });
   const candidates = await User.find({ _id: { $in: candidateIds }, role: "candidate", status: "verified" });
   const now = new Date();
   for (const candidate of candidates) {

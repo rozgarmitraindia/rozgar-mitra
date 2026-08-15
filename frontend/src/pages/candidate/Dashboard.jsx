@@ -83,7 +83,7 @@ export default function Dashboard() {
                     <tr className="border-b border-border">
                       <th className="py-3 pr-4 font-semibold">Job</th>
                       <th className="py-3 pr-4 font-semibold">Status</th>
-                      <th className="py-3 pr-4 font-semibold">Employer</th>
+                      <th className="py-3 pr-4 font-semibold">Company</th>
                       <th className="py-3 font-semibold">Applied</th>
                     </tr>
                   </thead>

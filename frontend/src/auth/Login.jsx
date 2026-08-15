@@ -8,7 +8,7 @@ import { cn } from "../lib/utils.js";
 
 const roleMap = {
   candidate: "Candidate",
-  employer: "Employer",
+  employer: "Company",
   roomOwner: "Room Owner",
   admin: "Admin",
 };
@@ -87,7 +87,7 @@ export default function Login() {
             Secure account access
           </div>
           <h1 className="mt-6 font-display text-4xl font-extrabold leading-tight sm:text-5xl">Login to continue your Rozgar Mitra journey</h1>
-          <p className="mt-4 max-w-xl text-muted-foreground">Access candidate, employer, room owner, or admin workflows with verified credentials and role-based routing.</p>
+          <p className="mt-4 max-w-xl text-muted-foreground">Access candidate, company, room owner, or admin workflows with verified credentials and role-based routing.</p>
         </div>
 
         <form className="rounded-3xl border border-border bg-card p-6 shadow-lift sm:p-8" onSubmit={login}>

@@ -56,13 +56,14 @@ function getDisplayName(session) {
 
 function getRoleLabel(role) {
   if (role === "roomOwner") return "Room Owner";
+  if (role === "employer") return "Company";
   return role ? role.charAt(0).toUpperCase() + role.slice(1) : "Member";
 }
 
 function BrandMark({ onClick }) {
   return (
     <NavLink to="/" onClick={onClick} className="inline-flex min-w-0 items-center gap-3" data-no-translate translate="no">
-      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-ink text-sm font-bold text-background">रो</span>
+      <img className="brand-logo-image size-10 shrink-0" src="/rozgar-mitra-logo.png" alt="Rozgar Mitra logo" />
       <span className="min-w-0">
         <span className="block truncate font-display text-[15px] font-bold tracking-tight text-foreground">ROZGAR MITRA</span>
         <span className="block truncate text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Jobs · Rooms · Growth</span>
@@ -113,6 +114,12 @@ export default function Navbar() {
   const displayName = getDisplayName(session);
   const firstName = displayName.split(" ")[0];
   const role = session?.role || session?.user?.role;
+  const visiblePublicLinks = publicLinks.filter((item) => {
+    if (!loggedIn) return true;
+    if (item.path === "/post-job") return role === "employer";
+    if (item.path === "/post-room") return role === "roomOwner";
+    return true;
+  });
 
   useEffect(() => {
     function handleClick(event) {
@@ -183,15 +190,15 @@ export default function Navbar() {
 
   return (
     <header className="glass sticky top-0 z-50 border-b border-border/70">
-      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-8">
+      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 sm:px-6 lg:grid-cols-[1fr_auto_1fr]">
+        <div className="min-w-0 justify-self-start">
           <BrandMark onClick={() => setOpen(false)} />
-          <nav className="hidden items-center gap-1 lg:flex">
-            {publicLinks.map((item) => <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} />)}
-          </nav>
         </div>
+        <nav className="hidden items-center justify-self-center gap-1 lg:flex">
+          {visiblePublicLinks.map((item) => <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} />)}
+        </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-self-end gap-2">
           <Button data-no-translate translate="no" variant="ghost" size="sm" onClick={toggle} aria-label="Toggle language">
             <Languages className="size-4" />
             {lang === "en" ? "EN" : "हि"}
@@ -240,7 +247,7 @@ export default function Navbar() {
       {open ? (
         <div className="border-t border-border bg-card px-4 py-4 shadow-lift lg:hidden">
           <nav className="mx-auto grid max-w-7xl gap-2">
-            {publicLinks.map((item) => <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} onClick={() => setOpen(false)} />)}
+            {visiblePublicLinks.map((item) => <HeaderLink key={item.path} item={item} label={t(item.key, item.fallback)} onClick={() => setOpen(false)} />)}
             {!loggedIn ? (
               <div className="mt-2 grid gap-2 sm:hidden">
                 <Button variant="outline" onClick={() => go("/login")}>{t("nav.login", "Login")}</Button>

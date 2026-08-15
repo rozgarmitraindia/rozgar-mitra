@@ -43,7 +43,7 @@ export default function AppliedJobs() {
             <tr>
               <th>Job</th>
               <th>Status</th>
-              <th>Employer</th>
+              <th>Company</th>
               <th>Applied Date</th>
               <th>Action</th>
             </tr>

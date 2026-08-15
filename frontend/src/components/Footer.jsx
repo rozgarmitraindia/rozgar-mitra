@@ -17,10 +17,10 @@ const trustItems = [
 function BrandMark() {
   return (
     <Link to="/" className="inline-flex items-center gap-3">
-      <span data-no-translate className="grid size-9 place-items-center rounded-xl bg-gradient-ink text-sm font-bold text-background">रो</span>
+      <img className="brand-logo-image size-12 shrink-0" src="/rozgar-mitra-logo.png" alt="Rozgar Mitra logo" />
       <span>
         <span className="block font-display text-[15px] font-bold tracking-tight">ROZGAR MITRA</span>
-        <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Jobs · Rooms · Growth</span>
+        <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Jobs Â· Rooms Â· Growth</span>
       </span>
     </Link>
   );
@@ -33,7 +33,7 @@ export default function Footer() {
         <div>
           <BrandMark />
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-            Rozgar Mitra connects India’s workers with verified jobs, practical rooms, and transparent growth workflows.
+            Rozgar Mitra connects Indiaâ€™s workers with verified jobs, practical rooms, and transparent growth workflows.
           </p>
         </div>
         <div>
@@ -55,7 +55,7 @@ export default function Footer() {
       </div>
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-2 px-4 py-5 text-xs text-muted-foreground sm:px-6">
-          <span>© 2026 Rozgar Mitra</span>
+          <span>Â© 2026 Rozgar Mitra</span>
           <span>Start simple. Launch fast. Grow big.</span>
           <span>Powered By Origin Software</span>
         </div>

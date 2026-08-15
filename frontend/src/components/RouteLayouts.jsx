@@ -40,7 +40,7 @@ const roleSidebars = {
 
 const breadcrumbMap = {
   candidate: "Candidate",
-  employer: "Employer",
+  employer: "Company",
   roomOwner: "Room Owner",
   admin: "Admin",
   superAdmin: "Super Admin",
@@ -129,12 +129,12 @@ export function RoleLayout({ role, children }) {
           {isEmployer ? (
             <>
               <div className="nav-logo employer-logo" data-no-translate translate="no">
-                <span className="logo-icon">RM</span>
-                <div><span className="logo-hindi">Employer</span><span className="logo-en">Hiring Center</span></div>
+                <img className="brand-logo-image logo-icon" src="/rozgar-mitra-logo.png" alt="Rozgar Mitra logo" />
+                <div><span className="logo-hindi">Company</span><span className="logo-en">Hiring Center</span></div>
               </div>
               <div className="employer-account-card">
                 <span className="employer-avatar">{(user.companyName || user.fullName || "E").charAt(0).toUpperCase()}</span>
-                <div><strong>{user.companyName || user.fullName || "Employer"}</strong><small>{user.status || "Account"}</small></div>
+                <div><strong>{user.companyName || user.fullName || "Company"}</strong><small>{user.status || "Account"}</small></div>
               </div>
               <div className="sidebar-heading">Workspace</div>
             </>

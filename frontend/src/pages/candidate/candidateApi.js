@@ -22,6 +22,16 @@ export async function fetchRooms(search = "") {
   }
 }
 
+export async function fetchPublicStats() {
+  try {
+    const result = await apiFetch("/jobs/public-stats");
+    return result.data || { liveJobs: 0, liveRooms: 0, companies: 0, hires: 0 };
+  } catch (error) {
+    if (isNetworkError(error)) return { liveJobs: 0, liveRooms: 0, companies: 0, hires: 0 };
+    throw error;
+  }
+}
+
 export async function fetchSavedJobs() {
   const result = await apiFetch("/user/saved");
   return result.data?.savedJobs || [];

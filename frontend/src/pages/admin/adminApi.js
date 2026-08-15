@@ -5,7 +5,7 @@ export const modules = [
   { key: "analytics", label: "Analytics", group: "Overview", icon: "AN", description: "Growth trends and platform performance" },
   { key: "reports", label: "Reports", group: "Overview", icon: "RP", description: "Status breakdowns and insights" },
   { key: "candidates", label: "Candidates", group: "Management", icon: "CA", description: "Candidate verification and accounts" },
-  { key: "employers", label: "Employers", group: "Management", icon: "EM", description: "Employer accounts and company profiles" },
+  { key: "employers", label: "Companies", group: "Management", icon: "CO", description: "Company accounts and profiles" },
   { key: "admins", label: "Admins", group: "Management", icon: "AD", description: "Platform administrators and super admins" },
   { key: "room-owners", label: "Room Owners", group: "Management", icon: "RO", description: "Room owner accounts and listings" },
   { key: "jobs", label: "Jobs Verification", group: "Reviews", icon: "JV", description: "Approve jobs before they go live", filter: "pending" },

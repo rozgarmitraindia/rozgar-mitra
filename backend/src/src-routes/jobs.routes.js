@@ -3,10 +3,22 @@ import { Job } from "../models/Job.js";
 import { Application } from "../models/Application.js";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { User } from "../models/User.js";
+import { Room } from "../models/Room.js";
 import { sendMail } from "../services/mail.service.js";
 import { asyncHandler, sendError, sendSuccess } from "../utils/apiResponse.js";
 
 export const jobsRouter = Router();
+
+jobsRouter.get("/public-stats", async (_req, res) => {
+  const [liveJobs, liveRooms, companies, hires] = await Promise.all([
+    Job.countDocuments({ status: "live" }),
+    Room.countDocuments({ status: "live" }),
+    User.countDocuments({ role: "employer", status: "verified", emailVerified: true }),
+    Application.countDocuments({ hiredAt: { $exists: true, $ne: null } }),
+  ]);
+  res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  return sendSuccess(res, { message: "Public platform stats fetched", data: { liveJobs, liveRooms, companies, hires } });
+});
 
 function normalizeDocument(doc, fallbackType = "document") {
   if (!doc) return null;

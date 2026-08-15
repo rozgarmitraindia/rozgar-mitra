@@ -157,7 +157,7 @@ export default function JobDetails() {
               <StatusPill status={job.status || "live"} />
               <h1 className="mt-4 max-w-3xl font-display text-4xl font-bold leading-[1.12] sm:text-5xl">{job.title}</h1>
               <div className="mt-5 flex flex-wrap gap-x-5 gap-y-3 text-sm text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">{job.companyName || job.company || "Employer"}<BadgeCheck className="size-4 text-verified" /></span>
+                <span className="inline-flex items-center gap-1.5">{job.companyName || job.company || "Company"}<BadgeCheck className="size-4 text-verified" /></span>
                 <span className="inline-flex items-center gap-1.5"><MapPin className="size-4 text-signal" />{job.location || job.address || "Location not specified"}</span>
                 <span className="inline-flex items-center gap-1.5"><Briefcase className="size-4 text-signal" />{formatEmploymentType(job.employmentType) || job.role || "Job role"}</span>
               </div>
@@ -206,14 +206,14 @@ export default function JobDetails() {
               <Info label="Daily start time" value={job.interviewStartTime || "Not specified"} />
               <Info label="Daily end time" value={job.interviewEndTime || "Not specified"} />
               <Info label="Interview mode" value={formatEmploymentType(job.interviewMode)} />
-              <Info label="Interview details" value={job.interviewDetails || "Will be shared by employer"} />
+              <Info label="Interview details" value={job.interviewDetails || "Will be shared by company"} />
             </div>
           </SectionCard>
           <SectionCard title="Skills & requirements">
             <div className="flex flex-wrap gap-2.5">{skills.length ? skills.map((skill) => <span key={skill} className="rounded-full bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground">{skill}</span>) : <span className="text-sm text-muted-foreground">Not specified</span>}</div>
-            <p className="mt-5 text-sm leading-7 text-muted-foreground">{job.requirements || "Requirements will be shared by employer."}</p>
+            <p className="mt-5 text-sm leading-7 text-muted-foreground">{job.requirements || "Requirements will be shared by company."}</p>
           </SectionCard>
-          <SectionCard title="Benefits / perks"><p className="leading-8 text-muted-foreground">{job.benefits || "No benefits shared by employer."}</p></SectionCard>
+          <SectionCard title="Benefits / perks"><p className="leading-8 text-muted-foreground">{job.benefits || "No benefits shared by company."}</p></SectionCard>
         </div>
 
         <aside className="h-fit rounded-2xl border border-border bg-card p-6 shadow-float sm:p-7 lg:sticky lg:top-24">
@@ -223,7 +223,7 @@ export default function JobDetails() {
               <div className="mt-5 rounded-xl bg-verified/10 p-5 text-sm leading-6 text-muted-foreground">
                 <CheckCircle2 className="mb-3 size-5 text-verified" />
                 <strong className="block text-foreground">You have already applied for this job.</strong>
-                <span className="mt-1 block">Your application and submitted documents are already with the employer. Further hiring updates will appear in your dashboard and notifications.</span>
+                <span className="mt-1 block">Your application and submitted documents are already with the company. Further hiring updates will appear in your dashboard and notifications.</span>
               </div>
               <div className="mt-6 grid gap-3">
                 <Button variant="outline" onClick={handleSave} disabled={saving}>{job.isSaved ? "Remove Save" : "Save Job"}</Button>
@@ -248,7 +248,7 @@ export default function JobDetails() {
                 <Button variant="outline" onClick={handleSave} disabled={saving}>{job.isSaved ? "Remove Save" : "Save Job"}</Button>
                 <Button variant="signal" onClick={handleApply} disabled={applying || applicationsNotOpen || applicationsClosed}>{applyLabel}</Button>
               </div>
-              <div className="mt-6 rounded-xl bg-verified/10 p-5 text-xs leading-5 text-muted-foreground"><CheckCircle2 className="mb-3 size-4 text-verified" />Your uploaded ID, resume and profile documents will be visible to admin and this employer in the applicants panel after you apply.</div>
+              <div className="mt-6 rounded-xl bg-verified/10 p-5 text-xs leading-5 text-muted-foreground"><CheckCircle2 className="mb-3 size-4 text-verified" />Your uploaded ID, resume and profile documents will be visible to admin and this company in the applicants panel after you apply.</div>
             </>
           )}
           <div className="mt-6 grid gap-3.5 text-sm leading-6 text-muted-foreground">

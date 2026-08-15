@@ -24,7 +24,7 @@ export default function EmployerNotifications() {
   const [busy, setBusy] = useState("");
   const toast = useToast();
   const role = getSession()?.role;
-  const label = role === "roomOwner" ? "Room owner notifications" : "Employer notifications";
+  const label = role === "roomOwner" ? "Room owner notifications" : "Company notifications";
   const description = role === "roomOwner" ? "Admin decisions, visit requests, booking confirmations and system alerts appear here." : "Admin decisions, candidate applications, interview updates and system alerts appear here.";
 
   const unreadCount = useMemo(() => items.filter((item) => item.status === "unread").length, [items]);

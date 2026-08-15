@@ -48,14 +48,14 @@ export default function EmployerDashboard() {
     ];
   }, [summary]);
 
-  const companyName = session?.user?.companyName || session?.companyName || "Employer";
+  const companyName = session?.user?.companyName || session?.companyName || "Company";
   const greeting = lang === "hi" ? `स्वागत है, ${companyName}` : `Welcome, ${companyName}`;
 
   return (
     <section className="bg-background">
       <div className="mesh-bg border-b border-border">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-          <div className="inline-flex rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Employer command center</div>
+          <div className="inline-flex rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Company command center</div>
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="font-display text-4xl font-bold" data-no-translate translate="no">{greeting}</h1>

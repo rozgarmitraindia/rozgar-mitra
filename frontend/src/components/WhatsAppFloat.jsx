@@ -2,7 +2,7 @@ import React from "react";
 import { FloatingWhatsApp } from "@digicroz/react-floating-whatsapp";
 
 export default function WhatsAppFloat() {
-  const raw = import.meta.env.VITE_WHATSAPP_NUMBER || "919999999999";
+  const raw = import.meta.env.VITE_WHATSAPP_NUMBER || "919580710941";
   const phoneNumber = String(raw).replace(/\D/g, "");
 
   return (

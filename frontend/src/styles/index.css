@@ -86,6 +86,21 @@ textarea {
   font-weight: 800;
 }
 
+.brand-logo-image {
+  display: block;
+  object-fit: contain;
+  border-radius: 12px;
+  background: white;
+  padding: 2px;
+  box-shadow: 0 4px 14px rgba(15, 75, 160, 0.18);
+}
+
+img.logo-icon.brand-logo-image {
+  object-fit: contain;
+  background: white;
+  padding: 2px;
+}
+
 .logo-hindi {
   display: block;
   color: var(--saffron-light);

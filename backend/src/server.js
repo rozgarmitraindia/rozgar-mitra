@@ -57,7 +57,11 @@ async function start() {
 			process.exit(1);
 		});
 
-		initializeSocket(server, (process.env.FRONTEND_URL || "http://localhost:5173").split(",").map((item) => item.trim().replace(/\/$/, "")));
+		const socketOrigins = `https://rozgarmitra-india.netlify.app,http://localhost:5173,http://localhost:5174,${process.env.FRONTEND_URL || ""},${process.env.CORS_ORIGINS || ""}`
+			.split(",")
+			.map((item) => item.trim().replace(/\/$/, ""))
+			.filter(Boolean);
+		initializeSocket(server, socketOrigins);
 		startInterviewReminderScheduler();
 
 		mongoose.connection.on('error', (err) => {

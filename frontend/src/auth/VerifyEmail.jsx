@@ -39,7 +39,7 @@ export default function VerifyEmail() {
     try {
       const res = await apiFetch("/auth/verify-email-otp", { method: "POST", body: JSON.stringify({ email: normalizedEmail, otp: normalizedOtp }) });
       setMessage(res.message || "Verified");
-      setTimeout(() => navigate("/login", { state: { info: "Email verified. You may login after admin approval." } }), 800);
+      setTimeout(() => navigate("/login", { state: { info: "Email verified successfully. You can login now." } }), 800);
     } catch (err) {
       setError(err.message);
     } finally {

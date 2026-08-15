@@ -14,7 +14,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { fetchJobs, fetchRooms } from "../pages/candidate/candidateApi.js";
+import { fetchJobs, fetchPublicStats, fetchRooms } from "../pages/candidate/candidateApi.js";
 import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
 import { Reveal } from "../components/primitives/Reveal.jsx";
@@ -23,13 +23,13 @@ import { StatusPill } from "../components/primitives/StatusPill.jsx";
 
 const roleCards = [
   [Users, "Candidate", "Verified jobs dekho, save/apply karo, aur room options bhi browse karo.", "/register"],
-  [Briefcase, "Employer", "Jobs post karo, applications manage karo, aur hiring pipeline track karo.", "/register"],
+  [Briefcase, "Company", "Jobs post karo, applications manage karo, aur hiring pipeline track karo.", "/register"],
   [HomeIcon, "Room Owner", "Rooms list karo, visit requests dekho, aur bookings manage karo.", "/register"],
   [ShieldCheck, "Admin", "Moderation, verification, complaints aur reports ka control center.", "/admin"],
 ];
 
 const trustCards = [
-  [ShieldCheck, "Document-checked employers", "Employer verification state candidates ko clearly dikhta hai."],
+  [ShieldCheck, "Document-checked companies", "Company verification state candidates ko clearly dikhta hai."],
   [BadgeCheck, "Owner-verified rooms", "Rooms approval ke baad hi public browsing me trusted signal aata hai."],
   [Users, "Reason on rejection", "Admin rejection silent nahi hota; reason ke saath status update hota hai."],
   [Sparkles, "Live status clarity", "Jobs aur rooms me live, pending, rejected states visible rahte hain."],
@@ -54,29 +54,51 @@ function getSalary(job) {
 export default function Home() {
   const [jobs, setJobs] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [publicStats, setPublicStats] = useState({ liveJobs: 0, liveRooms: 0, companies: 0, hires: 0 });
   const [loadingLive, setLoadingLive] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadLiveData(background = false) {
-      try {
-        const [liveJobs, liveRooms] = await Promise.all([fetchJobs(), fetchRooms()]);
-        if (cancelled) return;
+    async function loadListings(background = false) {
+      const [jobsResult, roomsResult] = await Promise.allSettled([fetchJobs(), fetchRooms()]);
+      if (!cancelled) {
+        const liveJobs = jobsResult.status === "fulfilled" ? jobsResult.value : [];
+        const liveRooms = roomsResult.status === "fulfilled" ? roomsResult.value : [];
         setJobs(liveJobs);
         setRooms(liveRooms);
-      } catch {
+        setPublicStats((current) => ({
+          ...current,
+          liveJobs: liveJobs.length,
+          liveRooms: liveRooms.length,
+        }));
+      }
+      if (!cancelled && !background) setLoadingLive(false);
+    }
+
+    async function loadStats() {
+      try {
+        const stats = await fetchPublicStats();
         if (!cancelled) {
-          setJobs([]);
-          setRooms([]);
+          setPublicStats((current) => ({
+            companies: Number.isFinite(stats.companies) ? stats.companies : current.companies,
+            hires: Number.isFinite(stats.hires) ? stats.hires : current.hires,
+            // Never replace successfully loaded listings with a stale/failed zero response.
+            liveJobs: Math.max(current.liveJobs, Number.isFinite(stats.liveJobs) ? stats.liveJobs : 0),
+            liveRooms: Math.max(current.liveRooms, Number.isFinite(stats.liveRooms) ? stats.liveRooms : 0),
+          }));
         }
-      } finally {
-        if (!cancelled && !background) setLoadingLive(false);
+      } catch {
+        // Listing counts already provide a real-data fallback when aggregate stats are unavailable.
       }
     }
 
-    loadLiveData();
-    const refresh = () => loadLiveData(true);
+    loadListings();
+    loadStats();
+    const refresh = () => {
+      loadListings(true);
+      loadStats();
+    };
     window.addEventListener("focus", refresh);
 
     return () => {
@@ -101,13 +123,13 @@ export default function Home() {
               <span className="block bg-gradient-signal bg-clip-text text-transparent">Verified by humans</span>
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-              Rozgar Mitra brings trusted employers, verified rooms, and visible moderation into one premium platform for India’s mobile workforce.
+              Rozgar Mitra brings trusted companies, verified rooms, and visible moderation into one premium platform for India’s mobile workforce.
             </p>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.12, ease: [0.16, 1, 0.3, 1] }} className="mt-10 max-w-3xl rounded-3xl border border-border bg-card p-2 shadow-lift">
             <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1">
-              <button className="relative h-10 rounded-xl bg-gradient-signal text-sm font-semibold text-signal-foreground">Jobs</button>
+              <Link to="/jobs" className="relative grid h-10 place-items-center rounded-xl bg-gradient-signal text-sm font-semibold text-signal-foreground">Jobs</Link>
               <Link to="/rooms" className="grid h-10 place-items-center rounded-xl text-sm font-semibold text-muted-foreground transition hover:text-foreground">Rooms</Link>
             </div>
             <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 p-2">
@@ -120,10 +142,10 @@ export default function Home() {
           </motion.div>
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard value={jobs.length || 4820} label="Live jobs" />
-            <StatCard value={rooms.length || 2136} label="Rooms" />
-            <StatCard value={912} label="Employers" />
-            <StatCard value={387} label="Hires" />
+            <StatCard value={publicStats.liveJobs} label="Live jobs" />
+            <StatCard value={publicStats.liveRooms} label="Live rooms" />
+            <StatCard value={publicStats.companies} label="Verified companies" />
+            <StatCard value={publicStats.hires} label="Successful hires" />
           </div>
         </div>
       </section>
@@ -210,7 +232,7 @@ export default function Home() {
           <div className="mesh-bg absolute inset-0 opacity-70" />
           <div className="relative max-w-xl">
             <h2 className="font-display text-3xl font-bold sm:text-4xl">Start simple. Launch fast. Grow big.</h2>
-            <p className="mt-4 opacity-80">Candidate, employer, aur room owner flows existing backend ke saath connected rahenge.</p>
+            <p className="mt-4 opacity-80">Candidate, company, aur room owner flows existing backend ke saath connected rahenge.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/register"><Button variant="signal" size="xl">Join Now</Button></Link>
               <Link to="/jobs"><Button variant="glass" size="xl">Browse Jobs</Button></Link>
@@ -244,7 +266,7 @@ function LiveJobCard({ job }) {
         <div>
           <Link to={`/jobs/${id}`} className="font-display text-lg font-semibold leading-tight hover:text-signal">{job.title}</Link>
           <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-            {job.companyName || job.company || job.employerName || "Employer"}
+            {job.companyName || job.company || job.employerName || "Company"}
             {job.companyVerified || job.verificationStatus === "verified" ? <BadgeCheck className="size-4 text-verified" /> : null}
           </p>
         </div>

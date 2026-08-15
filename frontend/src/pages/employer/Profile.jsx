@@ -32,7 +32,7 @@ export default function EmployerProfile() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 <ShieldCheck className="size-3.5 text-verified" />
-                Employer profile
+                Company profile
               </div>
               <h1 className="mt-4 font-display text-4xl font-bold">{user.companyName || user.fullName || "Company profile"}</h1>
               <p className="mt-2 max-w-2xl text-muted-foreground">Keep your hiring identity, verification documents and company contact details ready for admin review.</p>
@@ -51,7 +51,7 @@ export default function EmployerProfile() {
               </div>
               <div>
                 <h2 className="font-display text-2xl font-bold">{user.companyName || user.fullName || "-"}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{user.immutableId || "Employer ID pending"}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{user.immutableId || "Company ID pending"}</p>
               </div>
             </div>
             <span className="rounded-full border border-verified/30 bg-verified/10 px-3 py-1 text-xs font-semibold capitalize text-verified">{status}</span>

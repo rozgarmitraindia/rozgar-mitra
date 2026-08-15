@@ -8,7 +8,7 @@ import { cn } from "../lib/utils.js";
 
 const roleConfig = {
   candidate: { label: "Candidate", endpoint: "/auth/register/candidate", idPrefix: "candidateid" },
-  employer: { label: "Employer", endpoint: "/auth/register/employer", idPrefix: "companyid" },
+  employer: { label: "Company", endpoint: "/auth/register/employer", idPrefix: "companyid" },
   owner: { label: "Room Owner", endpoint: "/auth/register/room-owner", idPrefix: "ownerid" },
 };
 
@@ -21,6 +21,7 @@ export default function Register() {
   const [companyName, setCompanyName] = useState("");
   const [propertyName, setPropertyName] = useState("");
   const [selectedSkills, setSelectedSkills] = useState([]);
+  const [customSkills, setCustomSkills] = useState([]);
   const [customSkillInput, setCustomSkillInput] = useState("");
   const [customSkillMode, setCustomSkillMode] = useState(false);
   const [availableSkills, setAvailableSkills] = useState(defaultSkills);
@@ -48,18 +49,28 @@ export default function Register() {
 
   useEffect(() => {
     let active = true;
-    apiFetch("/skills")
-      .then((result) => {
-        if (!active) return;
-        const remoteSkills = result?.data?.skills || result?.skills || [];
-        const merged = [...new Set([...defaultSkills, ...remoteSkills.map((skill) => typeof skill === "string" ? skill : skill.displayName || skill.name)])];
-        setAvailableSkills(merged);
-      })
-      .catch(() => {
-        if (active) setAvailableSkills(defaultSkills);
-      });
+
+    function loadApprovedSkills() {
+      apiFetch("/skills")
+        .then((result) => {
+          if (!active) return;
+          const remoteSkills = result?.data?.skills || result?.skills || [];
+          const mergedSkills = [...defaultSkills, ...remoteSkills.map((skill) => typeof skill === "string" ? skill : skill.displayName || skill.name)].filter(Boolean);
+          const merged = [...new Map(mergedSkills.map((skill) => [String(skill).trim().toLowerCase(), String(skill).trim()])).values()];
+          setAvailableSkills(merged);
+        })
+        .catch(() => {
+          if (active) setAvailableSkills((current) => current.length ? current : defaultSkills);
+        });
+    }
+
+    loadApprovedSkills();
+    window.addEventListener("focus", loadApprovedSkills);
+    const refreshTimer = window.setInterval(loadApprovedSkills, 30000);
     return () => {
       active = false;
+      window.removeEventListener("focus", loadApprovedSkills);
+      window.clearInterval(refreshTimer);
     };
   }, []);
 
@@ -82,6 +93,7 @@ export default function Register() {
     const confirmPassword = form.get("confirmPassword");
     const email = form.get("email") || form.get("companyEmail");
     const normalizedSkills = [...new Set([...selectedSkills, ...(customSkillInput.trim() ? [customSkillInput.trim()] : [])].filter(Boolean))];
+    const normalizedCustomSkills = [...new Set([...customSkills, ...(customSkillInput.trim() ? [customSkillInput.trim()] : [])].filter(Boolean))];
 
     if (password !== confirmPassword) {
       setLoading(false);
@@ -91,6 +103,7 @@ export default function Register() {
 
     form.delete("confirmPassword");
     if (role === "candidate") form.append("skills", JSON.stringify(normalizedSkills));
+    if (role === "candidate") form.append("customSkills", JSON.stringify(normalizedCustomSkills));
     if (role === "employer") form.append("email", String(form.get("companyEmail") || ""));
 
     const uploadFiles = ["profilePhoto", "resume", "govtId", "companyLogo", "companyDocument", "hotelFrontPhoto", "hotelSidePhoto", "localTradeLicense", "ownerAadhaarCard", "ownerPanCard"]
@@ -121,7 +134,7 @@ export default function Register() {
             Verified onboarding
           </div>
           <h1 className="mt-6 font-display text-4xl font-extrabold leading-tight sm:text-5xl">Create your Rozgar Mitra account</h1>
-          <p className="mt-4 text-muted-foreground">Register as a candidate, employer, or room owner. Email OTP and admin verification keep the platform trusted.</p>
+          <p className="mt-4 text-muted-foreground">Register as a candidate, company, or room owner. Email OTP verify karne ke baad aap direct login kar sakte hain.</p>
           <div className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-float">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Generated ID</span>
             <strong className="mt-2 block break-all font-display text-lg">{generatedId}</strong>
@@ -134,7 +147,7 @@ export default function Register() {
               <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5 text-center shadow-lift">
                 <Loader2 className="mx-auto size-8 animate-spin text-signal" />
                 <h2 className="mt-4 font-display text-xl font-semibold">Documents uploading...</h2>
-                <p className="mt-2 text-sm text-muted-foreground">Please wait. Files are being attached to your profile for admin verification.</p>
+                <p className="mt-2 text-sm text-muted-foreground">Please wait. Files are being securely attached to your profile.</p>
                 {uploadFileNames.length ? (
                   <div className="mt-4 grid gap-2 text-left">
                     {uploadFileNames.map((name) => (
@@ -170,6 +183,8 @@ export default function Register() {
                 candidateName={candidateName}
                 setCandidateName={setCandidateName}
                 selectedSkills={selectedSkills}
+                customSkills={customSkills}
+                setCustomSkills={setCustomSkills}
                 toggleSkill={toggleSkill}
                 availableSkills={availableSkills}
                 customSkillInput={customSkillInput}
@@ -199,8 +214,12 @@ export default function Register() {
   );
 }
 
-function CandidateFields({ candidateName, setCandidateName, selectedSkills, toggleSkill, availableSkills, customSkillInput, setCustomSkillInput, customSkillMode, setCustomSkillMode }) {
+function CandidateFields({ candidateName, setCandidateName, selectedSkills, toggleSkill, availableSkills, customSkills, setCustomSkills, customSkillInput, setCustomSkillInput, customSkillMode, setCustomSkillMode }) {
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [skillSearch, setSkillSearch] = useState("");
+  const [skillDropdownOpen, setSkillDropdownOpen] = useState(false);
+  const useSkillDropdown = availableSkills.length > 10;
+  const filteredSkills = availableSkills.filter((skill) => skill.toLowerCase().includes(skillSearch.trim().toLowerCase()));
   const age = useMemo(() => {
     if (!dateOfBirth) return "";
     const birthDate = new Date(dateOfBirth);
@@ -230,24 +249,52 @@ function CandidateFields({ candidateName, setCandidateName, selectedSkills, togg
       </div>
       <div>
         <label className="text-sm font-semibold">Skills</label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {availableSkills.map((skill) => (
-            <button type="button" key={skill} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", selectedSkills.includes(skill) ? "border-signal bg-signal/15" : "border-border bg-muted text-muted-foreground")} onClick={() => toggleSkill(skill)}>
-              {skill}
+        {useSkillDropdown ? (
+          <div className="relative mt-2">
+            <button type="button" className="flex min-h-12 w-full items-center justify-between rounded-xl border border-border bg-muted px-3 py-2 text-left text-sm" onClick={() => setSkillDropdownOpen((current) => !current)} aria-expanded={skillDropdownOpen}>
+              <span className={selectedSkills.length ? "font-semibold text-foreground" : "text-muted-foreground"}>{selectedSkills.length ? `${selectedSkills.length} skills selected` : "Search and select multiple skills"}</span>
+              <span aria-hidden="true">⌄</span>
             </button>
-          ))}
-          <button type="button" className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", customSkillMode ? "border-signal bg-signal/15" : "border-border bg-muted text-muted-foreground")} onClick={() => toggleSkill("Other")}>
-            Other
-          </button>
-        </div>
+            {skillDropdownOpen ? (
+              <div className="absolute z-30 mt-2 w-full rounded-2xl border border-border bg-card p-3 shadow-lift">
+                <input autoFocus className="h-10 w-full rounded-xl border border-border bg-muted px-3 text-sm outline-none focus:ring-2 focus:ring-signal" value={skillSearch} onChange={(event) => setSkillSearch(event.target.value)} placeholder="Search skills..." />
+                <div className="mt-2 max-h-60 overflow-y-auto">
+                  {filteredSkills.map((skill) => (
+                    <button type="button" key={skill} className={cn("flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition hover:bg-accent", selectedSkills.includes(skill) && "bg-signal/10 font-semibold")} onClick={() => toggleSkill(skill)}>
+                      <span>{skill}</span><span aria-hidden="true">{selectedSkills.includes(skill) ? "✓" : "+"}</span>
+                    </button>
+                  ))}
+                  {!filteredSkills.length ? <p className="px-3 py-3 text-sm text-muted-foreground">No matching approved skill.</p> : null}
+                </div>
+                <button type="button" className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-left text-sm font-semibold hover:bg-accent" onClick={() => { setCustomSkillMode(true); setSkillDropdownOpen(false); }}>+ Add Other Skill</button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {availableSkills.map((skill) => (
+              <button type="button" key={skill} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", selectedSkills.includes(skill) ? "border-signal bg-signal/15" : "border-border bg-muted text-muted-foreground")} onClick={() => toggleSkill(skill)}>{skill}</button>
+            ))}
+            <button type="button" className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", customSkillMode ? "border-signal bg-signal/15" : "border-border bg-muted text-muted-foreground")} onClick={() => toggleSkill("Other")}>Other</button>
+          </div>
+        )}
+        {selectedSkills.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {selectedSkills.map((skill) => <button type="button" key={skill} className="rounded-full border border-signal bg-signal/10 px-3 py-1.5 text-xs font-semibold" onClick={() => {
+              toggleSkill(skill);
+              setCustomSkills((current) => current.filter((item) => item.toLowerCase() !== skill.toLowerCase()));
+            }}>{skill} ×</button>)}
+          </div>
+        ) : null}
         {customSkillMode ? (
           <div className="mt-3 space-y-2">
             <input className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm" value={customSkillInput} onChange={(event) => setCustomSkillInput(event.target.value)} placeholder="Type custom skill and save it" />
             <button type="button" className="rounded-xl border border-signal bg-signal/15 px-3 py-2 text-xs font-semibold text-foreground" onClick={() => {
               const value = customSkillInput.trim();
               if (!value) return;
-              setSelectedSkills((current) => (current.includes(value) ? current : [...current, value]));
-              setCustomSkillInput(value);
+              setSelectedSkills((current) => (current.some((skill) => skill.toLowerCase() === value.toLowerCase()) ? current : [...current, value]));
+              setCustomSkills((current) => (current.some((skill) => skill.toLowerCase() === value.toLowerCase()) ? current : [...current, value]));
+              setCustomSkillInput("");
               setCustomSkillMode(false);
             }}>
               Add custom skill

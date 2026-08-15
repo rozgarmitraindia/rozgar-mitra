@@ -23,14 +23,14 @@ export default function Dashboard({ onNavigate, overview }) {
 
   const overviewCards = [
     { title: "Candidates", value: totals.users ?? 0, note: "Registered accounts", action: "candidates", icon: Users, tone: "orange" },
-    { title: "Employers", value: totals.employers ?? 0, note: "Business accounts", action: "employers", icon: Building2, tone: "blue" },
+    { title: "Companies", value: totals.employers ?? 0, note: "Business accounts", action: "employers", icon: Building2, tone: "blue" },
     { title: "Jobs", value: totals.jobs ?? 0, note: `${data?.statusSummary?.pendingJobs ?? 0} awaiting review`, action: "jobs", icon: BriefcaseBusiness, tone: "green" },
     { title: "Rooms", value: totals.rooms ?? 0, note: `${data?.statusSummary?.pendingRooms ?? 0} awaiting review`, action: "rooms", icon: Home, tone: "purple" },
   ];
 
   const summaryCards = [
     { title: "Live Jobs", value: data?.statusSummary?.liveJobs ?? 0 },
-    { title: "Employers", value: totals.employers ?? 0 },
+    { title: "Companies", value: totals.employers ?? 0 },
     { title: "Room Owners", value: totals.roomOwners ?? 0 },
     { title: "Pending Jobs", value: data?.statusSummary?.pendingJobs ?? 0 },
   ];

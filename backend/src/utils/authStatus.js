@@ -15,7 +15,9 @@ export function getBlockedStatusResponse(user) {
     };
   }
 
-  if (user.status !== "verified") {
+  // `pending` was used by the previous account-review flow. Email-verified
+  // legacy accounts may log in and are upgraded to `verified` during login.
+  if (!["verified", "pending"].includes(user.status)) {
     return {
       statusCode: 403,
       code: `ACCOUNT_${String(user.status || "unknown").toUpperCase()}`,

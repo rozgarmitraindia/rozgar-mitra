@@ -7,6 +7,7 @@ export const skillsRouter = Router();
 skillsRouter.get("/", asyncHandler(async (_req, res) => {
   const items = await Skill.find({ isApproved: true }).sort({ displayName: 1 }).lean();
   const skills = items.map((item) => item.displayName || item.name);
+  res.set("Cache-Control", "no-store");
   return res.json({
     success: true,
     message: "Approved skills fetched",

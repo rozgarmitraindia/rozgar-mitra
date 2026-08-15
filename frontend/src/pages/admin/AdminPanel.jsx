@@ -77,7 +77,7 @@ export default function AdminPanel() {
       {sidebarOpen && <button className="admin-sidebar-backdrop" type="button" aria-label="Close menu" onClick={() => setSidebarOpen(false)} />}
       <aside className={`admin-sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="nav-logo">
-          <span className="logo-icon">RM</span>
+          <img className="brand-logo-image logo-icon" src="/rozgar-mitra-logo.png" alt="Rozgar Mitra logo" />
           <div>
             <span className="logo-hindi">Admin</span>
             <span className="logo-en">Control Center</span>

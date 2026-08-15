@@ -286,7 +286,7 @@ employerRouter.get("/summary", requireAuth, async (req, res) => {
     const applicationCounts = { total: applications.length, shortlisted: 0, interview: 0, hired: 0, rejected: 0 };
     applications.forEach((app) => { applicationCounts[app.status] = (applicationCounts[app.status] || 0) + 1; });
     const recent = await populateApplication(Application.find({ employer: req.user._id })).sort({ createdAt: -1 }).limit(6);
-    return sendSuccess(res, { message: "Employer summary fetched", data: { statusCounts, applicationCounts, recent } });
+    return sendSuccess(res, { message: "Company summary fetched", data: { statusCounts, applicationCounts, recent } });
   }
   if (req.user.role === "roomOwner") {
     const rooms = await Room.find({ owner: req.user._id });
@@ -350,7 +350,7 @@ employerRouter.get("/jobs", requireAuth, requireRole("employer"), async (req, re
   ]);
   const byJob = new Map(counts.map((count) => [String(count._id), count]));
   const items = jobs.map((job) => ({ ...job, applicationStats: byJob.get(String(job._id)) || { count: 0, interviews: 0, hired: 0 } }));
-  return sendSuccess(res, { message: "Employer jobs fetched", data: { items } });
+  return sendSuccess(res, { message: "Company jobs fetched", data: { items } });
 });
 
 employerRouter.patch("/jobs/:id/application-window", requireAuth, requireRole("employer"), async (req, res) => {
@@ -437,7 +437,7 @@ employerRouter.post("/applications/:id/shortlist", requireAuth, requireRole("emp
       heading: "Application Shortlisted",
       intro: "Your profile has moved to the next hiring stage.",
       app,
-      note: "The employer may schedule an interview or request additional information from your dashboard.",
+      note: "The company may schedule an interview or request additional information from your dashboard.",
     }),
   });
   return sendSuccess(res, { message: "Candidate shortlisted", data: { application: app } });
@@ -517,7 +517,7 @@ employerRouter.post("/applications/:id/hire", requireAuth, requireRole("employer
     type: "hired",
     emailHtml: applicationMailTemplate({
       heading: "Selection Confirmed",
-      intro: "Congratulations. The employer has selected your application.",
+      intro: "Congratulations. The company has selected your application.",
       app,
       note: "Please keep your phone and email active for joining or onboarding instructions.",
     }),
@@ -543,7 +543,7 @@ employerRouter.post("/applications/:id/fire", requireAuth, requireRole("employer
     type: "employment_terminated",
     emailHtml: applicationMailTemplate({
       heading: "Employment Ended",
-      intro: "The employer has marked this employment as ended.",
+      intro: "The company has marked this employment as ended.",
       app,
       details: [["Reason", escapeHtml(reason)], ["End date", escapeHtml(new Date().toLocaleDateString("en-IN"))]],
       note: "Your Rozgar Mitra profile work experience has been updated with the employment date range.",
@@ -567,7 +567,7 @@ employerRouter.post("/applications/:id/reject", requireAuth, requireRole("employ
     type: "application_rejected",
     emailHtml: applicationMailTemplate({
       heading: "Application Update",
-      intro: "Thank you for applying. The employer has closed this application with the reason below.",
+      intro: "Thank you for applying. The company has closed this application with the reason below.",
       app,
       details: [["Reason", escapeHtml(reason)]],
       note: "You can continue applying to other verified opportunities on Rozgar Mitra.",

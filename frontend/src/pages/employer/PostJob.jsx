@@ -22,7 +22,7 @@ export default function PostJob() {
   async function submit(event) {
     event.preventDefault();
     const session = getSession();
-    if (!session || session.role !== "employer") return navigate("/login", { state: { role: "employer", error: "Employer login required" } });
+    if (!session || session.role !== "employer") return navigate("/login", { state: { role: "employer", error: "Company login required" } });
     setSubmitting(true);
     try {
       await apiFetch("/employer/jobs", { method: "POST", body: JSON.stringify(job) });

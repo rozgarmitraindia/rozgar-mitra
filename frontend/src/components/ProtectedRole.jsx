@@ -2,7 +2,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { getSession } from "../utils/auth.js";
 
 const roleMessages = {
-  employer: "Post job karne ke liye employer account login compulsory hai.",
+  employer: "Post job karne ke liye company account login compulsory hai.",
   roomOwner: "Room post karne ke liye room owner account login compulsory hai.",
   candidate: "Apply karne ke liye candidate account login compulsory hai.",
   admin: "Admin panel access ke liye admin login required hai.",
