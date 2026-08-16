@@ -21,7 +21,7 @@ export default function RoomOwnerProfile() {
           <h1 className="section-title">Property Owner Details</h1>
           <p className="section-desc">Manage public trust details, owner identity, and property contact information from one clean profile.</p>
         </div>
-        <Link className="btn-search" to="/room-owner/settings">Edit Settings</Link>
+        <Link className="btn-search room-owner-header-action" to="/room-owner/settings">Edit Settings</Link>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -31,8 +31,8 @@ export default function RoomOwnerProfile() {
               {initial}
             </div>
             <div className="min-w-0">
-              <h2 className="truncate font-display text-2xl font-bold">{name}</h2>
-              <p className="section-desc">{user.immutableId || "Owner ID pending"}</p>
+              <h2 className="break-words font-display text-2xl font-bold">{name}</h2>
+              <p className="section-desc break-all">{user.immutableId || "Owner ID pending"}</p>
             </div>
           </div>
 

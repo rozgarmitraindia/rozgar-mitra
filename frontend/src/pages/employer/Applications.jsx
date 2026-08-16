@@ -149,7 +149,7 @@ export default function EmployerApplications() {
               <h1 className="mt-4 font-display text-4xl font-bold">Applicants & interviews</h1>
               <p className="mt-2 text-muted-foreground">Review biodata, government ID, resume, uploaded documents and schedule interviews.</p>
             </div>
-            <Button variant="outline" onClick={load}><RefreshCw className="size-4" />Refresh</Button>
+            <Button className="w-full min-[520px]:w-auto" variant="outline" onClick={load}><RefreshCw className="size-4" />Refresh</Button>
           </div>
         </div>
       </div>
@@ -181,22 +181,68 @@ export default function EmployerApplications() {
         ) : null}
 
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 min-[520px]:flex min-[520px]:w-auto min-[520px]:flex-wrap">
             {statuses.map((item) => (
-              <button key={item} type="button" className={cn("rounded-full border px-3.5 py-1.5 text-xs font-semibold capitalize transition", status === item ? "border-signal bg-signal/15 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground")} onClick={() => { setStatus(item); setSelectedIds([]); }}>
+              <button key={item} type="button" className={cn("min-h-9 rounded-full border px-3.5 py-1.5 text-xs font-semibold capitalize transition", status === item ? "border-signal bg-signal/15 text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground")} onClick={() => { setStatus(item); setSelectedIds([]); }}>
                 {item === "all" ? "All applicants" : item}
               </button>
             ))}
           </div>
           {selectedApplications.length ? (
-            <Button variant="signal" onClick={() => openInterviewWindow(selectedApplications)}>
+            <Button className="w-full min-[520px]:w-auto" variant="signal" onClick={() => openInterviewWindow(selectedApplications)}>
               <CalendarCheck2 className="size-4" />
               Schedule selected ({selectedApplications.length})
             </Button>
           ) : null}
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-float">
+        <div className="grid gap-4 lg:hidden">
+          {loading ? <div className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground shadow-float">Loading applicants...</div> : null}
+          {!loading && filtered.length ? filtered.map((item) => {
+            const busy = Boolean(actionLoading);
+            const closed = ["hired", "terminated", "rejected"].includes(item.status);
+            const documents = mergeDocLinks([
+              { doc: item.governmentIdDocument || item.governmentIdUrl },
+              { doc: item.candidateResumeDocument || item.candidateResumeUrl },
+              ...(item.applicationDocuments || []).map((doc) => ({ doc })),
+              ...(item.candidateDocuments || []).map((doc) => ({ doc })),
+              ...((item.candidate?.documents || []).map((doc) => ({ doc }))),
+            ]);
+            return (
+              <article key={item._id} className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-float">
+                <div className="flex items-start justify-between gap-3">
+                  <label className="flex min-w-0 items-start gap-3">
+                    <input className="mt-1 size-4 shrink-0 accent-signal disabled:opacity-40" type="checkbox" checked={selectedIds.includes(item._id)} disabled={closed} onChange={() => toggleSelected(item._id)} aria-label={`Select ${item.candidate?.fullName || "candidate"}`} />
+                    <span className="min-w-0">
+                      <strong className="block break-words text-sm">{item.candidate?.fullName || "Candidate"}</strong>
+                      <span className="mt-1 block break-words text-xs text-muted-foreground">{item.candidate?.email || "-"}</span>
+                    </span>
+                  </label>
+                  <span className="shrink-0 rounded-full bg-verified/15 px-2.5 py-1 text-[11px] font-semibold capitalize text-verified">{item.status}</span>
+                </div>
+
+                <div className="mt-4 grid gap-3 min-[520px]:grid-cols-2">
+                  <MobileInfo label="Job" value={item.job?.title || "Job removed"} />
+                  <MobileInfo label="Profile" value={`${candidateAge(item.candidate?.dateOfBirth)} - ${item.candidate?.gender || "Not shared"}`} />
+                  <MobileInfo label="Documents" value={`${documents.length} files`} />
+                  <MobileInfo label="Application ID" value={item._id} />
+                </div>
+
+                <div className="mt-4 grid gap-2 min-[420px]:grid-cols-2">
+                  <Button className="w-full" variant="outline" size="sm" onClick={() => setSelected(item)}>View bio</Button>
+                  <Button className="w-full" variant="outline" size="sm" disabled={busy || closed} onClick={() => doAction(item, "shortlist")}>Shortlist</Button>
+                  <Button className="w-full" variant="signal" size="sm" disabled={busy || closed} onClick={() => openInterviewWindow(item)}>Interview</Button>
+                  <Button className="w-full" variant="signal" size="sm" disabled={busy || closed} onClick={() => doAction(item, "hire")}>Hire</Button>
+                  {item.status === "hired" ? <Button className="w-full" variant="outline" size="sm" disabled={busy} onClick={() => doAction(item, "fire")}>Fire</Button> : null}
+                  <Button className="w-full" variant="outline" size="sm" disabled={busy || closed} onClick={() => doAction(item, "reject")}>Reject</Button>
+                </div>
+              </article>
+            );
+          }) : null}
+          {!loading && !filtered.length ? <div className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground shadow-float">No applications in this status.</div> : null}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-float lg:block">
           <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
             <thead className="bg-surface text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -234,13 +280,13 @@ export default function EmployerApplications() {
                     <td className="px-4 py-4 text-muted-foreground">{documents.length} files</td>
                     <td className="px-4 py-4"><span className="rounded-full bg-verified/15 px-2.5 py-0.5 text-xs font-semibold capitalize text-verified">{item.status}</span></td>
                     <td className="px-4 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setSelected(item)}>View bio</Button>
-                        <Button variant="outline" size="sm" disabled={busy || closed} onClick={() => doAction(item, "shortlist")}>Shortlist</Button>
-                        <Button variant="signal" size="sm" disabled={busy || closed} onClick={() => openInterviewWindow(item)}>Interview</Button>
-                        <Button variant="signal" size="sm" disabled={busy || closed} onClick={() => doAction(item, "hire")}>Hire</Button>
-                        {item.status === "hired" ? <Button variant="outline" size="sm" disabled={busy} onClick={() => doAction(item, "fire")}>Fire</Button> : null}
-                        <Button variant="outline" size="sm" disabled={busy || closed} onClick={() => doAction(item, "reject")}>Reject</Button>
+                      <div className="grid min-w-[240px] grid-cols-2 gap-2">
+                        <Button className="w-full" variant="outline" size="sm" onClick={() => setSelected(item)}>View bio</Button>
+                        <Button className="w-full" variant="outline" size="sm" disabled={busy || closed} onClick={() => doAction(item, "shortlist")}>Shortlist</Button>
+                        <Button className="w-full" variant="signal" size="sm" disabled={busy || closed} onClick={() => openInterviewWindow(item)}>Interview</Button>
+                        <Button className="w-full" variant="signal" size="sm" disabled={busy || closed} onClick={() => doAction(item, "hire")}>Hire</Button>
+                        {item.status === "hired" ? <Button className="w-full" variant="outline" size="sm" disabled={busy} onClick={() => doAction(item, "fire")}>Fire</Button> : null}
+                        <Button className="w-full" variant="outline" size="sm" disabled={busy || closed} onClick={() => doAction(item, "reject")}>Reject</Button>
                       </div>
                     </td>
                   </tr>
@@ -317,6 +363,15 @@ function CandidateModal({ item, onClose }) {
 
 function Bio({ label, value }) {
   return <div className="rounded-xl bg-muted p-3"><small className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</small><p className="mt-1 text-sm font-semibold">{value || "-"}</p></div>;
+}
+
+function MobileInfo({ label, value }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-muted p-3">
+      <small className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</small>
+      <p className="mt-1 break-words text-sm font-semibold">{value || "-"}</p>
+    </div>
+  );
 }
 
 function DocumentPreview({ label, doc }) {
@@ -414,21 +469,21 @@ function InterviewModal({ items, value, onChange, onClose, onSubmit, loading }) 
   const remote = value.mode === "remote";
   const single = items.length === 1 ? items[0] : null;
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-foreground/45 p-4" onMouseDown={onClose}>
-      <form className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-lift" onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
-          <div>
+    <div className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-foreground/45 p-3 sm:p-4" onMouseDown={onClose}>
+      <form className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lift sm:max-h-[calc(100dvh-2rem)]" onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border p-4 sm:p-6 sm:pb-4">
+          <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               <Users className="size-3.5 text-signal" />
               {items.length} candidate{items.length > 1 ? "s" : ""}
             </div>
-            <h2 className="mt-3 font-display text-xl font-bold">Planned Interview Window</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{single ? `${single.candidate?.fullName || "Candidate"} - ${single.job?.title || "Job"}` : "Same interview window will be sent to all selected candidates."}</p>
+            <h2 className="mt-3 break-words font-display text-xl font-bold">Planned Interview Window</h2>
+            <p className="mt-1 break-words text-sm text-muted-foreground">{single ? `${single.candidate?.fullName || "Candidate"} - ${single.job?.title || "Job"}` : "Same interview window will be sent to all selected candidates."}</p>
           </div>
-          <Button variant="ghost" size="icon" type="button" onClick={onClose}><X className="size-5" /></Button>
+          <Button className="shrink-0" variant="ghost" size="icon" type="button" onClick={onClose}><X className="size-5" /></Button>
         </div>
 
-        <div className="mt-6 grid gap-4">
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-6">
           <div className="rounded-2xl border border-border bg-surface p-4 text-sm text-muted-foreground">
             <div className="mb-2 flex items-center gap-2 font-semibold text-foreground"><CheckCircle2 className="size-4 text-verified" /> Candidate instructions</div>
             {remote ? "Online candidates will be told to join from a quiet place with stable internet, no nearby disturbance, and documents ready." : "Physical candidates will be told to reach the venue 30 minutes before the scheduled time and carry government ID/documents."}
@@ -455,7 +510,9 @@ function InterviewModal({ items, value, onChange, onClose, onSubmit, loading }) 
               <Field label="Google Maps URL" type="url" value={value.mapLink} onChange={(e) => set("mapLink", e.target.value)} />
             </>
           )}
-          <Button variant="signal" disabled={loading}>{loading ? "Scheduling..." : `Schedule & notify ${items.length} candidate${items.length > 1 ? "s" : ""}`}</Button>
+        </div>
+        <div className="shrink-0 border-t border-border bg-card p-4 sm:px-6">
+          <Button className="h-auto min-h-11 w-full whitespace-normal px-4 py-3 leading-snug" variant="signal" disabled={loading}>{loading ? "Scheduling..." : `Schedule & notify ${items.length} candidate${items.length > 1 ? "s" : ""}`}</Button>
         </div>
       </form>
     </div>

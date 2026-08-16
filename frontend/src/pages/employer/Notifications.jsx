@@ -110,10 +110,10 @@ export default function EmployerNotifications() {
               <h1 className="mt-4 font-display text-4xl font-bold">Notification center</h1>
               <p className="mt-2 max-w-2xl text-muted-foreground">{description}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={load}><RefreshCw className="size-4" />Refresh</Button>
-              <Button variant="signal" disabled={!unreadCount || busy === "all"} onClick={readAll}><CheckCheck className="size-4" />Mark all read</Button>
-              <Button variant="outline" disabled={!items.length || busy === "delete-all"} onClick={removeAll}><Trash2 className="size-4" />{busy === "delete-all" ? "Deleting..." : "Delete all"}</Button>
+            <div className="grid w-full gap-2 min-[520px]:flex min-[520px]:w-auto min-[520px]:flex-wrap">
+              <Button className="w-full min-[520px]:w-auto" variant="outline" onClick={load}><RefreshCw className="size-4" />Refresh</Button>
+              <Button className="w-full min-[520px]:w-auto" variant="signal" disabled={!unreadCount || busy === "all"} onClick={readAll}><CheckCheck className="size-4" />Mark all read</Button>
+              <Button className="w-full min-[520px]:w-auto" variant="outline" disabled={!items.length || busy === "delete-all"} onClick={removeAll}><Trash2 className="size-4" />{busy === "delete-all" ? "Deleting..." : "Delete all"}</Button>
             </div>
           </div>
         </div>
@@ -133,7 +133,7 @@ export default function EmployerNotifications() {
           {!loading && items.length ? items.map((item) => (
             <article key={item._id} className={cn("rounded-2xl border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift", item.status === "unread" ? "border-signal/50" : "border-border")}>
               <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-display text-lg font-semibold">{item.title || "Notification"}</h2>
                     <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize", item.status === "unread" ? "bg-signal/15 text-foreground" : "bg-muted text-muted-foreground")}>{item.status || "read"}</span>
@@ -144,11 +144,11 @@ export default function EmployerNotifications() {
                     {formatDate(item.createdAt)}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" disabled={item.status === "read" || busy === item._id} onClick={() => readOne(item)}>
+                <div className="grid w-full grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:w-auto">
+                  <Button className="w-full" variant="outline" size="sm" disabled={item.status === "read" || busy === item._id} onClick={() => readOne(item)}>
                     {busy === item._id ? "Updating..." : "Mark read"}
                   </Button>
-                  <Button variant="outline" size="sm" disabled={busy === `delete-${item._id}`} onClick={() => removeOne(item)}>
+                  <Button className="w-full" variant="outline" size="sm" disabled={busy === `delete-${item._id}`} onClick={() => removeOne(item)}>
                     <Trash2 className="size-4" />{busy === `delete-${item._id}` ? "Deleting..." : "Delete"}
                   </Button>
                 </div>

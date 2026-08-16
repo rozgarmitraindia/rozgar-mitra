@@ -59,7 +59,7 @@ export default function PostJob() {
         <div className="form-group"><label className="form-label">Skills <small>(comma separated)</small></label><input className="form-input" value={job.skills} onChange={(e) => update("skills", e.target.value)} placeholder="Hindi, MS Excel, customer handling" /></div>
         <div className="form-row"><div className="form-group"><label className="form-label">Job description</label><textarea className="form-textarea" value={job.description} onChange={(e) => update("description", e.target.value)} /></div><div className="form-group"><label className="form-label">Benefits / perks</label><textarea className="form-textarea" value={job.benefits} onChange={(e) => update("benefits", e.target.value)} /></div></div>
         <div className="form-group"><label className="form-label">Recruiter support contact</label><input className="form-input" value={job.contactNumber} onChange={(e) => update("contactNumber", e.target.value)} placeholder="Phone number candidates can contact" /></div>
-        <button className="btn-primary" type="submit" disabled={submitting}>{submitting ? <><span className="loading-spinner" />Submitting job...</> : "Submit job for review"}</button>
+        <button className="btn-primary employer-submit-action" type="submit" disabled={submitting}>{submitting ? <><span className="loading-spinner" />Submitting job...</> : "Submit job for review"}</button>
       </form>
     </section>
   );

@@ -61,7 +61,7 @@ export default function EmployerDashboard() {
               <h1 className="font-display text-4xl font-bold" data-no-translate translate="no">{greeting}</h1>
               <p className="mt-2 text-muted-foreground">Post jobs, monitor approval, manage candidates and run interviews from one hiring workspace.</p>
             </div>
-            <Link to="/post-job"><Button variant="signal" size="lg">Post a job</Button></Link>
+            <Link className="w-full min-[520px]:w-auto" to="/post-job"><Button className="w-full min-[520px]:w-auto" variant="signal" size="lg">Post a job</Button></Link>
           </div>
         </div>
       </div>
@@ -73,9 +73,9 @@ export default function EmployerDashboard() {
           {stats.map((card) => {
             const Icon = card.icon;
             return (
-              <Link key={card.label} to={card.path} className="rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
+              <Link key={card.label} to={card.path} className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
                 <span className="grid size-10 place-items-center rounded-xl bg-gradient-signal text-signal-foreground"><Icon className="size-5" /></span>
-                <span className="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">{card.label}</span>
+                <span className="mt-4 block break-words text-xs font-semibold uppercase tracking-wide text-muted-foreground">{card.label}</span>
                 <strong className="mt-2 block font-display text-3xl font-bold">{card.value}</strong>
               </Link>
             );
@@ -86,26 +86,36 @@ export default function EmployerDashboard() {
           <div className="rounded-2xl border border-border bg-card p-6 shadow-float">
             <h2 className="font-display text-xl font-semibold">Hiring actions</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">Build a structured job post with vacancies, eligibility, location, map link, salary and requirements.</p>
-            <div className="mt-6 grid gap-3">
-              <Link to="/post-job"><Button className="w-full" variant="signal">Create job post</Button></Link>
-              <Link to="/employer/jobs"><Button className="w-full" variant="outline">View job pipeline</Button></Link>
-              <Link to="/employer/applications"><Button className="w-full" variant="outline">Open applicants</Button></Link>
+            <div className="mt-6 grid gap-3 min-[480px]:grid-cols-2 lg:grid-cols-1">
+              <Link className="min-w-0" to="/post-job"><Button className="h-auto min-h-10 w-full whitespace-normal px-4 py-2.5 leading-snug" variant="signal">Create job post</Button></Link>
+              <Link className="min-w-0" to="/employer/jobs"><Button className="h-auto min-h-10 w-full whitespace-normal px-4 py-2.5 leading-snug" variant="outline">View job pipeline</Button></Link>
+              <Link className="min-w-0" to="/employer/applications"><Button className="h-auto min-h-10 w-full whitespace-normal px-4 py-2.5 leading-snug" variant="outline">Open applicants</Button></Link>
             </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-6 shadow-float">
-            <div className="flex items-center justify-between gap-4">
-              <div>
+            <div className="flex flex-col gap-4 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between">
+              <div className="min-w-0">
                 <h2 className="font-display text-xl font-semibold">Recent candidate responses</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Live backend activity from your jobs.</p>
               </div>
-              <Link to="/employer/applications"><Button variant="outline" size="sm">View all</Button></Link>
+              <Link className="w-full min-[520px]:w-auto" to="/employer/applications"><Button className="w-full min-[520px]:w-auto" variant="outline" size="sm">View all</Button></Link>
             </div>
             {loading ? (
               <p className="mt-6 text-sm text-muted-foreground">Loading recent activity...</p>
             ) : summary.recent?.length ? (
-              <div className="mt-6 overflow-x-auto">
-                <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+              <>
+                <div className="mt-6 grid gap-3 md:hidden">
+                  {summary.recent.map((application) => (
+                    <Link key={application._id} to="/employer/applications" className="min-w-0 rounded-xl border border-border bg-background p-4">
+                      <strong className="block break-words text-sm">{application.candidate?.fullName || application.candidate?.email || "Candidate"}</strong>
+                      <p className="mt-1 break-words text-xs text-muted-foreground">{application.job?.title || "-"}</p>
+                      <span className="mt-3 inline-flex rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold capitalize text-muted-foreground">{application.status}</span>
+                    </Link>
+                  ))}
+                </div>
+                <div className="mt-6 hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[520px] border-collapse text-left text-sm">
                   <thead className="text-xs uppercase tracking-wide text-muted-foreground">
                     <tr className="border-b border-border">
                       <th className="py-3 pr-4 font-semibold">Candidate</th>
@@ -123,7 +133,8 @@ export default function EmployerDashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </>
             ) : (
               <p className="mt-6 text-sm text-muted-foreground">No applications yet. Your responses will appear here once candidates show interest.</p>
             )}

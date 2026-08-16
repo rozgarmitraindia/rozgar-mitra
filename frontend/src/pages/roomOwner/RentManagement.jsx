@@ -55,7 +55,7 @@ export default function RentManagement() {
           <h1 className="section-title">Booked Rooms & Monthly Rent</h1>
           <p className="section-desc">Tenant, booking, billing cycle, due rent, payment history aur email reminders ek jagah manage karein.</p>
         </div>
-        <Button variant="outline" onClick={load} disabled={loading}><RefreshCw className="size-4" />Refresh</Button>
+        <Button className="w-full min-[520px]:w-auto" variant="outline" onClick={load} disabled={loading}><RefreshCw className="size-4" />Refresh</Button>
       </div>
 
       {error ? <div className="login-error">{error}</div> : null}
@@ -148,13 +148,13 @@ function RentCard({ item, onUpdated }) {
             <select className="form-select" value={method} onChange={(event) => setMethod(event.target.value)}><option value="cash">Cash</option><option value="upi">UPI</option><option value="bank">Bank transfer</option><option value="other">Other</option></select>
             <input className="form-input sm:col-span-2" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Receipt / transaction note (optional)" />
           </div>
-          <Button className="mt-3" variant="signal" disabled={busy === "payment"}>{busy === "payment" ? "Saving..." : "Save payment"}</Button>
+          <Button className="mt-3 w-full min-[520px]:w-auto" variant="signal" disabled={busy === "payment"}>{busy === "payment" ? "Saving..." : "Save payment"}</Button>
         </form>
 
         <div className="rounded-2xl border border-border p-4">
           <h3 className="font-display text-lg font-semibold">Rent reminder</h3>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">Tenant ko {money(cycle.due)} ka reminder email aur in-app notification भेजें.</p>
-          <Button className="mt-3" variant="outline" disabled={!cycle.due || busy === "reminder" || !tenant.email} onClick={remind}><BellRing className="size-4" />{busy === "reminder" ? "Sending..." : "Send email reminder"}</Button>
+          <Button className="mt-3 h-auto min-h-10 w-full whitespace-normal px-4 py-2.5 leading-snug min-[520px]:w-auto" variant="outline" disabled={!cycle.due || busy === "reminder" || !tenant.email} onClick={remind}><BellRing className="size-4" />{busy === "reminder" ? "Sending..." : "Send email reminder"}</Button>
           {!tenant.email ? <p className="mt-2 text-xs text-destructive">Tenant email unavailable.</p> : null}
         </div>
       </div>
@@ -170,5 +170,5 @@ function RentCard({ item, onUpdated }) {
 }
 
 function Detail({ label, value }) {
-  return <div className="rounded-xl bg-muted p-3"><span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span><strong className="mt-1 block text-sm">{value}</strong></div>;
+  return <div className="min-w-0 rounded-xl bg-muted p-3"><span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span><strong className="mt-1 block break-words text-sm">{value}</strong></div>;
 }

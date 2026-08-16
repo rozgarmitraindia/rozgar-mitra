@@ -42,7 +42,7 @@ export default function RoomOwnerDashboard() {
       <div className="section-header">
         <div>
           <div className="section-label">Room Owner Dashboard</div>
-          <h1 className="section-title">Welcome back, {session?.propertyName || session?.name || "Room Owner"}</h1>
+          <h1 className="section-title break-words">Welcome back, {session?.propertyName || session?.name || "Room Owner"}</h1>
           <p className="section-desc">Manage your room listings, visit requests, and bookings from one dashboard.</p>
         </div>
       </div>
@@ -68,7 +68,7 @@ export default function RoomOwnerDashboard() {
       <div className="dashboard-grid dashboard-main-grid">
         <div className="form-card">
           <div className="section-label">Quick Actions</div>
-          <div className="quick-actions">
+          <div className="quick-actions room-owner-quick-actions">
             <Link className="btn-search" to="/post-room">Post New Room</Link>
             <Link className="btn-secondary" to="/room-owner/rooms">Manage Rooms</Link>
             <Link className="btn-secondary" to="/room-owner/visit-requests">Review Visit Requests</Link>

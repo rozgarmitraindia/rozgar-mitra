@@ -96,7 +96,7 @@ export default function RoomOwnerRooms() {
           <h1 className="font-display text-4xl font-bold">Room Listing Manager</h1>
           <p className="mt-2 text-muted-foreground">Status, requests, edits, duplicate drafts, and public preview in one place.</p>
         </div>
-        <Link to="/post-room"><Button variant="signal"><PlusCircle className="size-4" />Add New Room</Button></Link>
+        <Link className="w-full lg:w-auto" to="/post-room"><Button className="w-full lg:w-auto" variant="signal"><PlusCircle className="size-4" />Add New Room</Button></Link>
       </div>
 
       {error ? <div className="mt-6 rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm font-semibold text-destructive">{error}</div> : null}
@@ -145,12 +145,12 @@ function RoomSection({ title, subtitle, rooms, loading, busy, closeRoom, duplica
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">Updated {room.updatedAt ? new Date(room.updatedAt).toLocaleString("en-IN") : "-"}</p>
                 </div>
-                <div className="flex flex-wrap gap-2 lg:justify-end">
-                  <Link to={`/post-room?roomId=${room._id}`}><Button variant="outline" size="sm"><Edit className="size-4" />Edit</Button></Link>
-                  <Button variant="outline" size="sm" disabled={busy === room._id} onClick={() => closeRoom(room)}><PauseCircle className="size-4" />Pause/Close</Button>
-                  <Button variant="outline" size="sm" disabled={busy === room._id} onClick={() => duplicateRoom(room)}><Copy className="size-4" />Duplicate</Button>
-                  <Button variant="outline" size="sm" disabled={busy === room._id} onClick={() => deleteRoom(room)}><Trash2 className="size-4" />Delete room</Button>
-                  {room.status === "live" ? <Link to={`/rooms/${room._id}`}><Button variant="signal" size="sm"><Eye className="size-4" />View public</Button></Link> : null}
+                <div className="room-owner-action-grid lg:max-w-[360px] lg:justify-end">
+                  <Link className="min-w-0" to={`/post-room?roomId=${room._id}`}><Button className="w-full" variant="outline" size="sm"><Edit className="size-4" />Edit</Button></Link>
+                  <Button className="w-full" variant="outline" size="sm" disabled={busy === room._id} onClick={() => closeRoom(room)}><PauseCircle className="size-4" />Pause/Close</Button>
+                  <Button className="w-full" variant="outline" size="sm" disabled={busy === room._id} onClick={() => duplicateRoom(room)}><Copy className="size-4" />Duplicate</Button>
+                  <Button className="w-full" variant="outline" size="sm" disabled={busy === room._id} onClick={() => deleteRoom(room)}><Trash2 className="size-4" />Delete room</Button>
+                  {room.status === "live" ? <Link className="min-w-0" to={`/rooms/${room._id}`}><Button className="w-full" variant="signal" size="sm"><Eye className="size-4" />View public</Button></Link> : null}
                 </div>
               </div>
             </article>

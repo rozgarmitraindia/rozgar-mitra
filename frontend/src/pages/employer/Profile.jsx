@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { BadgeCheck, Building2, FileText, Mail, MapPin, Pencil, Phone, ShieldCheck } from "lucide-react";
 import { apiFetch, getSession, setSession } from "../../utils/auth.js";
 
-const signalLink = "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-gradient-signal px-4 text-sm font-semibold text-signal-foreground shadow-float transition-all hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal";
-const glassLink = "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg glass px-4 text-sm font-semibold text-background transition-all hover:bg-background/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal";
+const signalLink = "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-gradient-signal px-4 py-2 text-center text-sm font-semibold leading-snug text-signal-foreground shadow-float transition-all hover:shadow-lift focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal";
+const glassLink = "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg glass px-4 py-2 text-center text-sm font-semibold leading-snug text-background transition-all hover:bg-background/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal";
 
 export default function EmployerProfile() {
   const session = getSession();
@@ -34,10 +34,10 @@ export default function EmployerProfile() {
                 <ShieldCheck className="size-3.5 text-verified" />
                 Company profile
               </div>
-              <h1 className="mt-4 font-display text-4xl font-bold">{user.companyName || user.fullName || "Company profile"}</h1>
+              <h1 className="mt-4 break-words font-display text-3xl font-bold leading-tight sm:text-4xl">{user.companyName || user.fullName || "Company profile"}</h1>
               <p className="mt-2 max-w-2xl text-muted-foreground">Keep your hiring identity, verification documents and company contact details ready for admin review.</p>
             </div>
-            <Link className={signalLink} to="/employer/settings"><Pencil className="size-4" />Edit profile</Link>
+            <Link className={`${signalLink} w-full min-[520px]:w-auto`} to="/employer/settings"><Pencil className="size-4" />Edit profile</Link>
           </div>
         </div>
       </div>
@@ -45,13 +45,13 @@ export default function EmployerProfile() {
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-2xl border border-border bg-card p-6 shadow-float">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-4">
               <div className="grid size-16 place-items-center rounded-2xl bg-gradient-ink font-display text-xl font-bold text-background">
                 {(user.companyName || user.fullName || "RM").slice(0, 2).toUpperCase()}
               </div>
-              <div>
-                <h2 className="font-display text-2xl font-bold">{user.companyName || user.fullName || "-"}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{user.immutableId || "Company ID pending"}</p>
+              <div className="min-w-0">
+                <h2 className="break-words font-display text-2xl font-bold">{user.companyName || user.fullName || "-"}</h2>
+                <p className="mt-1 break-all text-sm text-muted-foreground">{user.immutableId || "Company ID pending"}</p>
               </div>
             </div>
             <span className="rounded-full border border-verified/30 bg-verified/10 px-3 py-1 text-xs font-semibold capitalize text-verified">{status}</span>
@@ -85,9 +85,9 @@ export default function EmployerProfile() {
           <div className="rounded-2xl border border-border bg-gradient-ink p-6 text-background shadow-float">
             <h2 className="font-display text-xl font-bold">Hiring shortcuts</h2>
             <div className="mt-5 grid gap-3">
-              <Link className={signalLink} to="/post-job">Post job</Link>
-              <Link className={glassLink} to="/employer/applications">Review applicants</Link>
-              <Link className={glassLink} to="/employer/jobs">Manage jobs</Link>
+              <Link className={`${signalLink} w-full`} to="/post-job">Post job</Link>
+              <Link className={`${glassLink} w-full`} to="/employer/applications">Review applicants</Link>
+              <Link className={`${glassLink} w-full`} to="/employer/jobs">Manage jobs</Link>
             </div>
           </div>
         </div>
@@ -100,7 +100,7 @@ function Info({ icon: Icon, label, value }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><Icon className="size-4 text-signal" />{label}</div>
-      <p className="mt-2 text-sm font-semibold">{value || "-"}</p>
+      <p className="mt-2 break-words text-sm font-semibold">{value || "-"}</p>
     </div>
   );
 }
@@ -109,7 +109,7 @@ function DocumentLink({ doc, index }) {
   return (
     <a href={doc.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 text-sm font-semibold transition hover:border-signal hover:text-signal">
       <FileText className="size-5 text-signal" />
-      <span className="capitalize">{doc.originalName || doc.type || `Document ${index + 1}`}</span>
+      <span className="min-w-0 break-words capitalize">{doc.originalName || doc.type || `Document ${index + 1}`}</span>
     </a>
   );
 }

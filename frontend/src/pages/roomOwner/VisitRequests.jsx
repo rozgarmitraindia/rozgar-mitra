@@ -91,7 +91,7 @@ export default function VisitRequests() {
           <h1 className="section-title">Visit Review Desk</h1>
           <p className="section-desc">Candidate profile, room ID, visit slot, and approval workflow in one responsive owner view.</p>
         </div>
-        <button className="btn-secondary" type="button" onClick={load} disabled={loading}><RefreshCw size={16} />Refresh</button>
+        <button className="btn-secondary room-owner-header-action" type="button" onClick={load} disabled={loading}><RefreshCw size={16} />Refresh</button>
       </div>
 
       {error ? <div className="login-error">{error}</div> : null}
@@ -177,7 +177,7 @@ function VisitCard({ item, busy, onCandidate, onAction }) {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 lg:max-w-[260px] lg:justify-end">
+        <div className="room-owner-action-grid lg:max-w-[260px] lg:justify-end">
           <button className="btn-secondary" type="button" disabled={busy || !canAccept} onClick={() => onAction("accept")}>Accept</button>
           <button className="btn-danger" type="button" disabled={busy || !canAccept} onClick={() => onAction("reject")}>Reject</button>
           <button className="btn-primary" type="button" disabled={busy || !canComplete} onClick={() => onAction("complete")}><CheckCircle2 size={16} />Mark Visit Complete</button>
@@ -190,8 +190,8 @@ function VisitCard({ item, busy, onCandidate, onAction }) {
 function CandidateModal({ candidate, onClose }) {
   const docs = [candidate.profilePhoto, candidate.resume, ...(candidate.documents || [])].filter(Boolean);
   return (
-    <div className="document-modal" onMouseDown={onClose}>
-      <section className="document-modal-card admin-edit-modal" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="document-modal room-owner-scroll-modal" onMouseDown={onClose}>
+      <section className="document-modal-card admin-edit-modal room-owner-modal-card" onMouseDown={(event) => event.stopPropagation()}>
         <div className="document-modal-head">
           <div>
             <strong>{candidate.fullName || "Candidate Profile"}</strong>

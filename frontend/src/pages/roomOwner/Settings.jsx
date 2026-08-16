@@ -55,7 +55,7 @@ export default function RoomOwnerSettings() {
           <h1 className="section-title">Account Settings</h1>
           <p className="section-desc">Keep owner identity, property profile, and contact details accurate for candidate trust.</p>
         </div>
-        <Link className="btn-secondary" to="/room-owner/profile"><ArrowLeft size={16} />Profile</Link>
+        <Link className="btn-secondary room-owner-header-action" to="/room-owner/profile"><ArrowLeft size={16} />Profile</Link>
       </div>
 
       <form className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]" onSubmit={handleSave}>
@@ -82,9 +82,9 @@ export default function RoomOwnerSettings() {
             </label>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3 border-t border-border pt-5">
-            <button className="btn-primary" type="submit" disabled={loading}><Save size={16} />{loading ? "Saving..." : "Save Settings"}</button>
-            <Link className="btn-secondary" to="/room-owner/dashboard">Back to dashboard</Link>
+          <div className="mt-6 grid gap-3 border-t border-border pt-5 min-[520px]:flex min-[520px]:flex-wrap">
+            <button className="btn-primary min-[520px]:w-auto" type="submit" disabled={loading}><Save size={16} />{loading ? "Saving..." : "Save Settings"}</button>
+            <Link className="btn-secondary min-[520px]:w-auto" to="/room-owner/dashboard">Back to dashboard</Link>
           </div>
         </div>
 
@@ -93,9 +93,9 @@ export default function RoomOwnerSettings() {
           <h2 className="mt-3 font-display text-2xl font-bold">{propertyName || "Property name"}</h2>
           <p className="mt-3 detail-desc">{about || "Your property summary will appear here."}</p>
           <div className="mt-5 grid gap-3 text-sm">
-            <span className="rounded-xl border border-border bg-surface p-3"><b>Email</b><br />{email || "-"}</span>
-            <span className="rounded-xl border border-border bg-surface p-3"><b>Phone</b><br />{mobile || "-"}</span>
-            <span className="rounded-xl border border-border bg-surface p-3"><b>Address</b><br />{address || "-"}</span>
+            <span className="break-words rounded-xl border border-border bg-surface p-3"><b>Email</b><br />{email || "-"}</span>
+            <span className="break-words rounded-xl border border-border bg-surface p-3"><b>Phone</b><br />{mobile || "-"}</span>
+            <span className="break-words rounded-xl border border-border bg-surface p-3"><b>Address</b><br />{address || "-"}</span>
           </div>
         </aside>
       </form>

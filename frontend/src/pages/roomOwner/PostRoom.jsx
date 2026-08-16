@@ -377,9 +377,9 @@ export default function PostRoom() {
           <h1 className="mt-4 font-display text-3xl font-bold">{t("rooms.reviewSuccess", "Aapki listing review mein hai")}</h1>
           <p className="mt-3 text-muted-foreground">{t("rooms.reviewSub", "24 ghante mein update milega. Admin approval ke baad room public page par live hoga.")}</p>
           <div className="mx-auto mt-6 inline-flex rounded-full border border-border bg-muted px-4 py-2 text-sm font-bold">{success.publicId || success.roomId}</div>
-          <div className="mt-8 flex justify-center gap-3">
-            <Link to="/room-owner/rooms"><Button variant="signal">Manage listings</Button></Link>
-            <Link to="/rooms"><Button variant="outline">Browse public rooms</Button></Link>
+          <div className="mt-8 grid gap-3 min-[520px]:flex min-[520px]:justify-center">
+            <Link className="min-w-0" to="/room-owner/rooms"><Button className="w-full min-[520px]:w-auto" variant="signal">Manage listings</Button></Link>
+            <Link className="min-w-0" to="/rooms"><Button className="w-full min-[520px]:w-auto" variant="outline">Browse public rooms</Button></Link>
           </div>
         </div>
       </section>
@@ -396,7 +396,7 @@ export default function PostRoom() {
             <h1 className="font-display text-4xl font-bold">{editingId ? "Edit Room" : t("rooms.postTitle", "Post a Room")}</h1>
             <p className="mt-2 text-muted-foreground">{t("rooms.postSub", "Premium room listing banao, photos upload karo, aur admin approval ke liye submit karo.")}</p>
           </div>
-          <Button variant="outline" onClick={() => saveRoom("draft")} disabled={saving}><Save className="size-4" />Save draft</Button>
+          <Button className="w-full lg:w-auto" variant="outline" onClick={() => saveRoom("draft")} disabled={saving}><Save className="size-4" />Save draft</Button>
         </div>
 
         <div className="mt-8 rounded-2xl border border-border bg-card p-4 shadow-float">
@@ -420,14 +420,14 @@ export default function PostRoom() {
             {step === 3 ? <PhotosStep room={room} uploadQueue={uploadQueue} fileRef={fileRef} handleFiles={handleFiles} setCover={setCover} updateCaption={updateCaption} deletePhoto={deletePhoto} movePhoto={movePhoto} /> : null}
             {step === 4 ? <AmenitiesStep room={room} toggleList={toggleList} customAmenity={customAmenity} setCustomAmenity={setCustomAmenity} customRule={customRule} setCustomRule={setCustomRule} /> : null}
 
-            <div className="mt-8 flex flex-wrap justify-between gap-3 border-t border-border pt-5">
-              <Button type="button" variant="outline" onClick={() => setStep((value) => Math.max(value - 1, 0))} disabled={step === 0}><ArrowLeft className="size-4" />Previous</Button>
-              <div className="flex flex-wrap gap-3">
-                <Button type="button" variant="outline" onClick={() => saveRoom("draft")} disabled={saving}><Save className="size-4" />Save draft</Button>
+            <div className="mt-8 grid gap-3 border-t border-border pt-5 min-[620px]:flex min-[620px]:flex-wrap min-[620px]:justify-between">
+              <Button className="w-full min-[620px]:w-auto" type="button" variant="outline" onClick={() => setStep((value) => Math.max(value - 1, 0))} disabled={step === 0}><ArrowLeft className="size-4" />Previous</Button>
+              <div className="grid gap-3 min-[420px]:grid-cols-2 min-[620px]:flex min-[620px]:flex-wrap">
+                <Button className="w-full min-[620px]:w-auto" type="button" variant="outline" onClick={() => saveRoom("draft")} disabled={saving}><Save className="size-4" />Save draft</Button>
                 {step < steps.length - 1 ? (
-                  <Button type="button" variant="signal" onClick={() => setStep((value) => Math.min(value + 1, steps.length - 1))}>Next <ArrowRight className="size-4" /></Button>
+                  <Button className="w-full min-[620px]:w-auto" type="button" variant="signal" onClick={() => setStep((value) => Math.min(value + 1, steps.length - 1))}>Next <ArrowRight className="size-4" /></Button>
                 ) : (
-                  <Button type="button" variant="signal" onClick={() => saveRoom("pending")} disabled={saving}>{saving ? "Submitting..." : "Submit for admin approval"}</Button>
+                  <Button className="h-auto min-h-10 w-full whitespace-normal px-4 py-2.5 leading-snug min-[620px]:w-auto" type="button" variant="signal" onClick={() => saveRoom("pending")} disabled={saving}>{saving ? "Submitting..." : "Submit for admin approval"}</Button>
                 )}
               </div>
             </div>
@@ -666,14 +666,14 @@ function AmenitiesStep({ room, toggleList, customAmenity, setCustomAmenity, cust
   return (
     <div className="grid gap-7">
       <ChipSection title="Amenities" values={AMENITIES} selected={room.amenities} onToggle={(value) => toggleList("amenities", value)} />
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+      <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_auto]">
         <Input value={customAmenity} onChange={(event) => setCustomAmenity(event.target.value)} placeholder="+ Add custom amenity" />
-        <Button type="button" variant="outline" onClick={() => addCustom("amenities", customAmenity, setCustomAmenity)}>Add</Button>
+        <Button className="w-full min-[420px]:w-auto" type="button" variant="outline" onClick={() => addCustom("amenities", customAmenity, setCustomAmenity)}>Add</Button>
       </div>
       <ChipSection title="House rules" values={RULES} selected={room.rules} onToggle={(value) => toggleList("rules", value)} />
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+      <div className="grid gap-2 min-[420px]:grid-cols-[minmax(0,1fr)_auto]">
         <Input value={customRule} onChange={(event) => setCustomRule(event.target.value)} placeholder="+ Add custom rule" />
-        <Button type="button" variant="outline" onClick={() => addCustom("rules", customRule, setCustomRule)}>Add</Button>
+        <Button className="w-full min-[420px]:w-auto" type="button" variant="outline" onClick={() => addCustom("rules", customRule, setCustomRule)}>Add</Button>
       </div>
       <div className="rounded-2xl border border-border bg-muted p-4">
         <h3 className="font-display text-base font-bold">Selected rules</h3>

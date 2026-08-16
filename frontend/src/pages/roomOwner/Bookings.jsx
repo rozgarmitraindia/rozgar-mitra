@@ -76,7 +76,43 @@ export default function Bookings() {
 
       {error ? <div className="login-error">{error}</div> : null}
 
-      <div className="admin-table-wrap">
+      <div className="room-owner-booking-cards">
+        {loading ? <div className="form-card text-muted-foreground">Loading bookings...</div> : null}
+        {!loading && bookings.length ? bookings.map((item) => {
+          const room = item.room || {};
+          const left = Number(room.availableOccupancy ?? room.maxOccupancy ?? 0);
+          const isBooked = bookingStatus(item) === "booked";
+          return (
+            <article key={item._id} className="form-card room-owner-booking-card">
+              <div className="room-owner-card-head">
+                <div className="min-w-0">
+                  <div className="section-label">{roomId(room)}</div>
+                  <h2 className="form-title mt-2">{room.propertyName || room.title || "Room"}</h2>
+                  <p className="section-desc">{room.type || room.roomType || "Room"} | {left} left</p>
+                </div>
+                <span className="status-pill">{bookingStatus(item)}</span>
+              </div>
+              <div className="room-owner-info-grid">
+                <Info label="Candidate" value={item.user?.fullName || item.user?.email || "Candidate"} />
+                <Info label="Candidate ID" value={item.user?.immutableId || item.user?._id || "-"} />
+                <Info label="Mobile" value={item.user?.mobile || item.user?.phone || "-"} />
+                <Info label="Visit status" value={visitStatus(item)} />
+                <Info label="Occupancy" value={isBooked ? `${item.bookedOccupancy || 1} booked (${room.availableOccupancy || 0} left)` : `${left} available`} />
+              </div>
+              <div className="room-owner-action-grid">
+                <button className="btn-secondary" type="button" onClick={() => setSelectedCandidate(item.user)}>Candidate profile</button>
+                <Link className="btn-secondary" to={`/post-room?roomId=${room._id}`}>Room <ExternalLink size={13} /></Link>
+                <button className="btn-primary" type="button" disabled={isBooked || left <= 0} onClick={() => setBookingTarget(item)}>
+                  {isBooked ? "Booked" : "Confirm booked"}
+                </button>
+              </div>
+            </article>
+          );
+        }) : null}
+        {!loading && !bookings.length ? <div className="form-card text-center">No completed visits unlocked yet.</div> : null}
+      </div>
+
+      <div className="admin-table-wrap room-owner-booking-table">
         <table className="admin-table">
           <thead>
             <tr>
@@ -171,8 +207,8 @@ function ConfirmBookingModal({ item, onClose, onConfirm }) {
   }
 
   return (
-    <div className="document-modal" onMouseDown={onClose}>
-      <form className="document-modal-card admin-edit-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
+    <div className="document-modal room-owner-scroll-modal" onMouseDown={onClose}>
+      <form className="document-modal-card admin-edit-modal room-owner-modal-card" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
         <div className="document-modal-head">
           <div>
             <strong>Confirm room booked</strong>
@@ -219,7 +255,7 @@ function ConfirmBookingModal({ item, onClose, onConfirm }) {
             <textarea className="form-input" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Deposit received, documents verified, move-in date..." />
           </label>
         </div>
-        <div className="admin-actions">
+        <div className="admin-actions room-owner-modal-actions">
           <button className="btn-secondary" type="button" onClick={onClose}>Cancel</button>
           <button className="btn-primary" type="submit" disabled={saving}>{saving ? "Saving..." : "Approve booking"}</button>
         </div>
@@ -231,8 +267,8 @@ function ConfirmBookingModal({ item, onClose, onConfirm }) {
 function CandidateModal({ candidate, onClose }) {
   const docs = [candidate.profilePhoto, candidate.resume, ...(candidate.documents || [])].filter(Boolean);
   return (
-    <div className="document-modal" onMouseDown={onClose}>
-      <section className="document-modal-card admin-edit-modal" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="document-modal room-owner-scroll-modal" onMouseDown={onClose}>
+      <section className="document-modal-card admin-edit-modal room-owner-modal-card" onMouseDown={(event) => event.stopPropagation()}>
         <div className="document-modal-head">
           <div>
             <strong>{candidate.fullName || "Candidate Profile"}</strong>
@@ -270,6 +306,15 @@ function Bio({ label, value, wide = false }) {
     <div className={wide ? "form-group admin-edit-wide" : "form-group"}>
       <span className="form-label">{label}</span>
       <div className="detail-desc">{value}</div>
+    </div>
+  );
+}
+
+function Info({ label, value }) {
+  return (
+    <div className="room-owner-info">
+      <span>{label}</span>
+      <strong>{value || "-"}</strong>
     </div>
   );
 }
