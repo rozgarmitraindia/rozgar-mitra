@@ -12,7 +12,7 @@ export function Sheet({ open, onOpenChange, children }) {
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
         transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-        className="absolute right-0 top-0 h-full w-full max-w-sm border-l border-border bg-card p-5 shadow-lift"
+        className="absolute right-0 top-0 h-full w-full max-w-sm overflow-y-auto border-l border-border bg-card p-5 shadow-lift"
       >
         <div className="flex justify-end">
           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Close menu">

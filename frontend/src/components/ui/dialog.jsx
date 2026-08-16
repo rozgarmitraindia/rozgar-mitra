@@ -7,13 +7,13 @@ export function Dialog({ open, onOpenChange, title, description, children, class
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-foreground/45 p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-foreground/45 p-3 sm:p-4" role="dialog" aria-modal="true">
       <button className="absolute inset-0 cursor-default" aria-label="Close dialog" onClick={() => onOpenChange(false)} />
       <motion.div
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-        className={cn("relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lift", className)}
+        className={cn("relative max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-lift sm:max-h-[calc(100dvh-2rem)] sm:p-6", className)}
       >
         <Button className="absolute right-4 top-4" variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Close">
           <X className="size-4" />

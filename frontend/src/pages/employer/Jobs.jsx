@@ -187,8 +187,8 @@ export default function EmployerJobs() {
       </div>
 
       {editing ? (
-        <div className="document-modal" onMouseDown={() => setEditing(null)}>
-          <form className="document-modal-card employer-modal" onSubmit={submitEdit} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="document-modal employer-date-modal-overlay" onMouseDown={() => setEditing(null)}>
+          <form className="document-modal-card employer-modal employer-date-modal" onSubmit={submitEdit} onMouseDown={(event) => event.stopPropagation()}>
             <div className="document-modal-head">
               <div>
                 <div className="section-label">Edit registration dates</div>
@@ -210,7 +210,9 @@ export default function EmployerJobs() {
                 <Field label="Interview start time" type="time" value={editForm.interviewStartTime} onChange={(value) => setEditForm((current) => ({ ...current, interviewStartTime: value }))} />
                 <Field label="Interview end time" type="time" value={editForm.interviewEndTime} onChange={(value) => setEditForm((current) => ({ ...current, interviewEndTime: value }))} />
               </div>
-              <button className="btn-primary" type="submit" disabled={saving}>{saving ? "Saving..." : "Save dates"}</button>
+              <div className="employer-date-modal-actions">
+                <button className="btn-primary" type="submit" disabled={saving}>{saving ? "Saving..." : "Save dates"}</button>
+              </div>
             </div>
           </form>
         </div>
