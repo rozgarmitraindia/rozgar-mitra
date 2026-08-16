@@ -18,7 +18,15 @@ export function isFirebaseConfigured() {
   return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.messagingSenderId);
 }
 
+export function isPushSupported() {
+  return typeof window !== "undefined"
+    && "Notification" in window
+    && "serviceWorker" in navigator
+    && window.isSecureContext;
+}
+
 export function getFirebaseMessaging() {
+  if (!isPushSupported()) return null;
   initApp();
   try {
     return getMessaging();
@@ -48,6 +56,7 @@ async function ensureMessagingServiceWorker() {
 }
 
 export async function requestToken(vapidKey, retry = true) {
+  if (!vapidKey || !isPushSupported()) return null;
   const messaging = getFirebaseMessaging();
   if (!messaging) return null;
   try {

@@ -1,24 +1,13 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { getFirebaseAdmin } from "../services/firebase.service.js";
+import { getFirebaseAdmin, sendPushNotification } from "../services/firebase.service.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { User } from "../models/User.js";
 import { createNotification, deleteAllUserNotifications, deleteUserNotification, getUserNotifications, getUnreadCount, markAsRead, markAllAsRead } from "../services/notification.service.js";
 
 async function sendMulticast(firebase, tokens, payload) {
   if (!tokens || tokens.length === 0) return [];
-  const chunkSize = 500; // FCM limit
-  const results = [];
-  for (let i = 0; i < tokens.length; i += chunkSize) {
-    const batch = tokens.slice(i, i + chunkSize);
-    try {
-      const resp = await firebase.messaging().sendEachForMulticast({ tokens: batch, ...payload });
-      results.push(resp);
-    } catch (e) {
-      console.error('FCM multicast error', e);
-    }
-  }
-  return results;
+  return sendPushNotification(tokens, payload);
 }
 
 export const notificationsRouter = Router();
@@ -71,16 +60,19 @@ notificationsRouter.post("/push", requireAuth, async (req, res) => {
 });
 
 notificationsRouter.post('/register', requireAuth, async (req, res) => {
-  const token = req.body?.token;
+  const token = String(req.body?.token || "").trim();
   if (!token) return sendError(res, { statusCode: 400, code: 'TOKEN_REQUIRED', message: 'Token is required' });
+  if (token.length > 4096) return sendError(res, { statusCode: 400, code: 'TOKEN_INVALID', message: 'Token is invalid' });
   const user = req.user;
   user.pushTokens = Array.from(new Set([...(user.pushTokens || []), token]));
+  user.lastPushTokenRegisteredAt = new Date();
+  user.lastPushTokenUserAgent = String(req.headers["user-agent"] || "").slice(0, 500);
   await user.save();
   return sendSuccess(res, { message: 'Token registered' });
 });
 
 notificationsRouter.post('/unregister', requireAuth, async (req, res) => {
-  const token = req.body?.token;
+  const token = String(req.body?.token || "").trim();
   if (!token) return sendError(res, { statusCode: 400, code: 'TOKEN_REQUIRED', message: 'Token is required' });
   const user = req.user;
   user.pushTokens = (user.pushTokens || []).filter(t => t !== token);

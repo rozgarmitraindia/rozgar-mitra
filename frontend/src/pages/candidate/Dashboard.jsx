@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Briefcase, CalendarCheck, Home, UserRound } from "lucide-react";
+import { Bell, Briefcase, CalendarCheck, Home, Search, UserRound } from "lucide-react";
 import { getSession } from "../../utils/auth.js";
 import { fetchCandidateApplications, fetchCandidateSummary } from "./candidateApi.js";
 import { Button } from "../../components/ui/button.jsx";
@@ -44,7 +44,7 @@ export default function Dashboard() {
       <div className="mesh-bg border-b border-border">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
           <div className="inline-flex rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Candidate Dashboard</div>
-          <h1 className="mt-4 font-display text-4xl font-bold">Welcome back, {session?.name || session?.user?.fullName || "Candidate"}</h1>
+          <h1 className="mt-4 max-w-4xl break-words font-display text-3xl font-bold leading-tight sm:text-4xl">Welcome back, {session?.name || session?.user?.fullName || "Candidate"}</h1>
           <p className="mt-2 text-muted-foreground">Your profile, jobs, rooms, applications and alerts in one verified workspace.</p>
         </div>
       </div>
@@ -52,33 +52,50 @@ export default function Dashboard() {
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         {error ? <div className="mb-6 rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm font-semibold text-destructive">{error}</div> : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 min-[480px]:grid-cols-2 lg:grid-cols-5">
           {stats.map((card) => {
             const Icon = card.icon;
             return (
-              <Link key={card.label} to={card.link} className="rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
+              <Link key={card.label} to={card.link} className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-float transition hover:-translate-y-0.5 hover:shadow-lift">
                 <span className="grid size-10 place-items-center rounded-xl bg-gradient-signal text-signal-foreground"><Icon className="size-5" /></span>
-                <span className="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">{card.label}</span>
+                <span className="mt-4 block break-words text-xs font-semibold uppercase tracking-wide text-muted-foreground">{card.label}</span>
                 <strong className="mt-2 block font-display text-3xl font-bold">{card.value}</strong>
               </Link>
             );
           })}
         </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-float">
-            <div className="flex items-center justify-between gap-4">
-              <div>
+        <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]">
+          <div className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-float sm:p-6">
+            <div className="flex flex-col gap-4 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between">
+              <div className="min-w-0">
                 <h2 className="font-display text-xl font-semibold">Recent Applications</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Latest backend application activity.</p>
               </div>
-              <Link to="/applied-jobs"><Button variant="outline" size="sm">View all</Button></Link>
+              <Link className="w-full min-[520px]:w-auto" to="/applied-jobs"><Button className="w-full min-[520px]:w-auto" variant="outline" size="sm">View all</Button></Link>
             </div>
             {loading ? (
               <p className="mt-6 text-sm text-muted-foreground">Loading your activity...</p>
             ) : (
-              <div className="mt-6 overflow-x-auto">
-                <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+              <>
+                <div className="mt-6 grid gap-3 md:hidden">
+                  {applications.slice(0, 6).map((application) => (
+                    <Link key={application._id} to="/applied-jobs" className="min-w-0 rounded-xl border border-border bg-background p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="break-words text-sm font-semibold text-foreground">{application.job?.title || "Unknown"}</h3>
+                          <p className="mt-1 break-words text-xs text-muted-foreground">{application.employer?.companyName || application.employer?.fullName || "-"}</p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold capitalize text-muted-foreground">{application.status || "submitted"}</span>
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">{application.createdAt ? new Date(application.createdAt).toLocaleDateString() : "-"}</p>
+                    </Link>
+                  ))}
+                  {!applications.length && !loading ? <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">No applications yet. Apply to jobs from the browse page.</div> : null}
+                </div>
+
+                <div className="mt-6 hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[560px] border-collapse text-left text-sm">
                   <thead className="text-xs uppercase tracking-wide text-muted-foreground">
                     <tr className="border-b border-border">
                       <th className="py-3 pr-4 font-semibold">Job</th>
@@ -90,31 +107,43 @@ export default function Dashboard() {
                   <tbody>
                     {applications.slice(0, 6).map((application) => (
                       <tr key={application._id} className="border-b border-border/70">
-                        <td className="py-3 pr-4">{application.job?.title || "Unknown"}</td>
+                        <td className="max-w-[280px] break-words py-3 pr-4 font-medium">{application.job?.title || "Unknown"}</td>
                         <td className="py-3 pr-4 capitalize text-muted-foreground">{application.status}</td>
-                        <td className="py-3 pr-4 text-muted-foreground">{application.employer?.companyName || application.employer?.fullName || "-"}</td>
+                        <td className="max-w-[240px] break-words py-3 pr-4 text-muted-foreground">{application.employer?.companyName || application.employer?.fullName || "-"}</td>
                         <td className="py-3 text-muted-foreground">{application.createdAt ? new Date(application.createdAt).toLocaleDateString() : "-"}</td>
                       </tr>
                     ))}
                     {!applications.length && !loading ? <tr><td className="py-6 text-muted-foreground" colSpan="4">No applications yet. Apply to jobs from the browse page.</td></tr> : null}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </>
             )}
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-float">
+          <div className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-float sm:p-6">
             <h2 className="font-display text-xl font-semibold">Quick Actions</h2>
             <p className="mt-1 text-sm text-muted-foreground">Common candidate flows.</p>
-            <div className="mt-6 grid gap-3">
-              <Link to="/jobs"><Button className="w-full" variant="signal">Browse Jobs</Button></Link>
-              <Link to="/saved-jobs"><Button className="w-full" variant="outline">Saved Jobs</Button></Link>
-              <Link to="/notifications"><Button className="w-full" variant="outline">Notifications</Button></Link>
-              <Link to="/profile"><Button className="w-full" variant="outline">Profile</Button></Link>
+            <div className="mt-6 grid gap-3 min-[480px]:grid-cols-2 xl:grid-cols-1">
+              <QuickAction to="/jobs" icon={Search} variant="signal">Browse Jobs</QuickAction>
+              <QuickAction to="/saved-jobs" icon={Briefcase}>Saved Jobs</QuickAction>
+              <QuickAction to="/notifications" icon={Bell}>Notifications</QuickAction>
+              <QuickAction to="/profile" icon={UserRound}>Profile</QuickAction>
             </div>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function QuickAction({ to, icon: Icon, variant = "outline", children }) {
+  return (
+    <Link className="min-w-0" to={to}>
+      <Button className="h-auto min-h-11 w-full whitespace-normal px-4 py-3 text-left leading-snug" variant={variant}>
+        <Icon className="size-4 shrink-0" />
+        <span className="min-w-0 break-words">{children}</span>
+      </Button>
+    </Link>
   );
 }

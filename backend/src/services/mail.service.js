@@ -1,5 +1,4 @@
 import { Resend } from "resend";
-import { sendPushNotification } from "./firebase.service.js";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -238,15 +237,6 @@ export async function sendBookingStatusMail(candidate, booking, status) {
 
 export async function sendStatusMail(user, status, reason = "") {
   await sendAccountStatusMail(user, status, reason);
-  if (user.pushTokens && user.pushTokens.length) {
-    await sendPushNotification(user.pushTokens, {
-      notification: {
-        title: `Rozgar Mitra account ${status}`,
-        body: reason || "Your account status has been updated by admin.",
-      },
-      data: { type: "account_status", status },
-    });
-  }
 }
 
 export async function sendVerificationMail(user) {

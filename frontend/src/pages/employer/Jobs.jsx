@@ -95,6 +95,19 @@ export default function EmployerJobs() {
     finally { setActionJobId(null); }
   }
 
+  function renderActions(job) {
+    return (
+      <div className="employer-actions">
+        {job.status === "rejected" ? <span className="login-error employer-job-reason">{job.adminReason || "Rejected"}</span> : null}
+        {job.status === "pending" ? <span className="section-desc employer-job-note">Pending admin review</span> : null}
+        {job.status === "live" ? <Link className="btn-secondary" to="/employer/applications">Manage applicants</Link> : null}
+        <button className="btn-search" type="button" onClick={() => openEdit(job)}>Edit dates</button>
+        {job.status !== "closed" ? <button className="btn-secondary" type="button" disabled={actionJobId === job._id} onClick={() => closeJob(job)}>Close Job</button> : <span className="section-desc employer-job-note">Closed {job.closedAt ? new Date(job.closedAt).toLocaleDateString() : ""}</span>}
+        <button className="btn-danger" type="button" disabled={actionJobId === job._id} onClick={() => deleteJob(job)}>{actionJobId === job._id ? "Please wait..." : "Delete Job"}</button>
+      </div>
+    );
+  }
+
   return (
     <section className="section">
       <div className="section-header">
@@ -116,7 +129,31 @@ export default function EmployerJobs() {
         ))}
       </div>
 
-      <div className="admin-table-wrap">
+      <div className="employer-job-cards">
+        {loading ? <div className="employer-job-card">Loading jobs...</div> : null}
+        {!loading && filtered.length ? filtered.map((job) => (
+          <article className="employer-job-card" key={job._id}>
+            <div className="employer-job-card-head">
+              <div>
+                <h2>{job.title || "Untitled"}</h2>
+                <p>{job.address || "-"}</p>
+              </div>
+              <span className="status-pill">{job.status || "pending"}</span>
+            </div>
+            <div className="employer-job-meta">
+              <Info label="Application" value={job.applicationStartDate ? new Date(job.applicationStartDate).toLocaleDateString() : "-"} sub={`to ${job.applicationEndDate ? new Date(job.applicationEndDate).toLocaleDateString() : "-"}`} />
+              <Info label="Interview" value={job.interviewStartDate ? new Date(job.interviewStartDate).toLocaleDateString() : "-"} sub={`to ${job.interviewEndDate ? new Date(job.interviewEndDate).toLocaleDateString() : "-"} | ${job.interviewStartTime || "-"}-${job.interviewEndTime || "-"}`} />
+              <Info label="Salary" value={job.salary || "Not set"} />
+              <Info label="Vacancies" value={job.vacancies || 1} />
+              <Info label="Applicants" value={job.applicationStats?.count || 0} sub={job.applicationStats?.interviews ? `${job.applicationStats.interviews} interviews` : ""} />
+            </div>
+            {renderActions(job)}
+          </article>
+        )) : null}
+        {!loading && !filtered.length ? <div className="employer-job-card">No job posts in this status.</div> : null}
+      </div>
+
+      <div className="admin-table-wrap employer-jobs-table">
         <table className="admin-table">
           <thead>
             <tr>
@@ -141,16 +178,7 @@ export default function EmployerJobs() {
                 <td>{job.salary || "Not set"}</td>
                 <td>{job.vacancies || 1}</td>
                 <td>{job.applicationStats?.count || 0}<small>{job.applicationStats?.interviews ? ` · ${job.applicationStats.interviews} interviews` : ""}</small></td>
-                <td>
-                  <div className="employer-actions">
-                    {job.status === "rejected" ? <span className="login-error" style={{ padding: "6px 8px", margin: 0 }}>{job.adminReason || "Rejected"}</span> : null}
-                    {job.status === "pending" ? <span className="section-desc">Pending admin review</span> : null}
-                    {job.status === "live" ? <Link className="btn-secondary" to="/employer/applications">Manage applicants</Link> : null}
-                    <button className="btn-search" type="button" onClick={() => openEdit(job)}>Edit dates</button>
-                    {job.status !== "closed" ? <button className="btn-secondary" type="button" disabled={actionJobId === job._id} onClick={() => closeJob(job)}>Close Job</button> : <span className="section-desc">Closed {job.closedAt ? new Date(job.closedAt).toLocaleDateString() : ""}</span>}
-                    <button className="btn-danger" type="button" disabled={actionJobId === job._id} onClick={() => deleteJob(job)}>{actionJobId === job._id ? "Please wait..." : "Delete Job"}</button>
-                  </div>
-                </td>
+                <td>{renderActions(job)}</td>
               </tr>
             )) : null}
             {!loading && !filtered.length ? <tr><td colSpan="8">No job posts in this status.</td></tr> : null}
@@ -196,6 +224,16 @@ function Field({ label, value, onChange, ...props }) {
     <div className="form-group">
       <label className="form-label">{label}</label>
       <input className="form-input" value={value} onChange={(event) => onChange(event.target.value)} {...props} />
+    </div>
+  );
+}
+
+function Info({ label, value, sub = "" }) {
+  return (
+    <div className="employer-job-info">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {sub ? <small>{sub}</small> : null}
     </div>
   );
 }

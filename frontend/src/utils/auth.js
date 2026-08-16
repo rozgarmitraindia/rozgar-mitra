@@ -16,11 +16,13 @@ export function setSession(session, persistent = true) {
     sessionStorage.setItem("rozgar_session", payload);
     localStorage.removeItem("rozgar_session");
   }
+  window.dispatchEvent(new CustomEvent("rozgar:auth-change", { detail: { authenticated: true, role: session?.role } }));
 }
 
 export function clearSession() {
   localStorage.removeItem("rozgar_session");
   sessionStorage.removeItem("rozgar_session");
+  window.dispatchEvent(new CustomEvent("rozgar:auth-change", { detail: { authenticated: false } }));
 }
 
 const rawApiBase = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -70,6 +72,24 @@ function errorMessageFromResponse(response, data, fallback = "Request failed") {
   return data.message || data.error || fallback;
 }
 
+function decodeJwtPayload(token) {
+  try {
+    const payload = token.split(".")[1];
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
+
+function shouldRefreshBeforeRequest(session) {
+  if (!session?.token || !session?.refreshToken) return false;
+  const payload = decodeJwtPayload(session.token);
+  if (!payload?.exp) return false;
+  return payload.exp * 1000 - Date.now() < 60_000;
+}
+
 async function performTokenRefresh() {
   const session = getSession();
   if (!session?.refreshToken) return null;
@@ -111,8 +131,19 @@ async function refreshAccessToken() {
   return refreshPromise;
 }
 
-export async function apiFetch(path, options = {}) {
+async function getRequestSession(path) {
   const session = getSession();
+  if (path === "/auth/refresh-token" || !shouldRefreshBeforeRequest(session)) return session;
+  try {
+    await refreshAccessToken();
+    return getSession();
+  } catch {
+    return getSession();
+  }
+}
+
+export async function apiFetch(path, options = {}) {
+  const session = await getRequestSession(path);
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
@@ -167,7 +198,7 @@ export async function apiFetch(path, options = {}) {
 }
 
 export async function apiUpload(path, formData, options = {}) {
-  const session = getSession();
+  const session = await getRequestSession(path);
   const headers = {
     ...(options.headers || {}),
   };

@@ -5,6 +5,7 @@ import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { User } from "../models/User.js";
 import { Room } from "../models/Room.js";
 import { sendMail } from "../services/mail.service.js";
+import { createNotification } from "../services/notification.service.js";
 import { asyncHandler, sendError, sendSuccess } from "../utils/apiResponse.js";
 
 export const jobsRouter = Router();
@@ -143,6 +144,26 @@ jobsRouter.post("/:id/applications", requireAuth, requireRole("candidate"), asyn
       await sendMail({ to: req.user.email, subject: "Application submitted", html: `<p>Your application for ${job.title} has been submitted.</p>` });
     } catch (mailError) {
       console.error("Application confirmation mail failed", { email: req.user.email, error: mailError.message });
+    }
+    try {
+      await Promise.all([
+        createNotification({
+          recipient: req.user._id,
+          title: "Application submitted",
+          body: `Your application for ${job.title || "this job"} has been submitted.`,
+          metadata: { type: "application_submitted", applicationId: String(application._id), jobId: String(job._id) },
+          sendPush: true,
+        }),
+        createNotification({
+          recipient: job.employer,
+          title: "New job application",
+          body: `${req.user.fullName || req.user.email || "A candidate"} applied for ${job.title || "your job"}.`,
+          metadata: { type: "application_received", applicationId: String(application._id), jobId: String(job._id) },
+          sendPush: true,
+        }),
+      ]);
+    } catch (notificationError) {
+      console.error("Application notification failed", { applicationId: String(application._id), error: notificationError.message });
     }
     return sendSuccess(res, { statusCode: 201, message: "Application submitted", data: { application } });
   } catch (error) {

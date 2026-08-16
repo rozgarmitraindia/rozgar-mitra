@@ -80,6 +80,8 @@ const userSchema = new mongoose.Schema({
   savedJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Job" }],
   savedRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: "Room" }],
   pushTokens: [String],
+  lastPushTokenRegisteredAt: Date,
+  lastPushTokenUserAgent: String,
 }, { timestamps: true });
 
 userSchema.index({ email: 1 }, { unique: true, sparse: true });

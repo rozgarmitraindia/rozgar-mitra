@@ -7,7 +7,7 @@ import { Booking } from "../models/Booking.js";
 import { makeImmutableId } from "../utils/id.js";
 import { renderEmailTemplate, resolveFrontendUrl, sendMail } from "../services/mail.service.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
-import { getFirebaseAdmin } from "../services/firebase.service.js";
+import { sendPushNotification } from "../services/firebase.service.js";
 import { User } from "../models/User.js";
 import { createNotification } from "../services/notification.service.js";
 
@@ -131,6 +131,7 @@ async function notifyRoomCandidate({ booking, title, body, type, details = [] })
     body,
     channel: "inApp",
     metadata: { type, roomId: String(booking.room?._id || booking.room), bookingId: String(booking._id) },
+    sendPush: true,
     realtime: true,
   });
   if (booking.user.email) {
@@ -612,12 +613,9 @@ employerRouter.post("/rooms", requireAuth, requireRole("roomOwner"), async (req,
     adminReason: undefined,
   });
   try {
-    const firebase = getFirebaseAdmin();
-    if (firebase) {
-      const candidates = await User.find({ role: 'candidate' }).select('pushTokens');
-      const tokens = candidates.flatMap(u => u.pushTokens || []);
-      if (tokens.length) await firebase.messaging().sendEachForMulticast({ tokens, notification: { title: 'New room posted', body: room.title || 'A new room was posted' } });
-    }
+    const candidates = await User.find({ role: 'candidate' }).select('pushTokens');
+    const tokens = candidates.flatMap(u => u.pushTokens || []);
+    if (tokens.length) await sendPushNotification(tokens, { notification: { title: 'New room posted', body: room.title || 'A new room was posted' }, data: { type: "new_room", roomId: String(room._id), url: `/rooms/${room._id}` } });
   } catch (e) { console.error('Push error', e); }
   return sendSuccess(res, { statusCode: 201, message: "Room submitted for admin review", data: { room } });
 });
@@ -770,6 +768,17 @@ employerRouter.post("/visit-requests/:id/respond", requireAuth, requireRole("roo
       ],
     }),
   });
+  try {
+    await createNotification({
+      recipient: booking.user._id,
+      title: "Visit request updated",
+      body: `Your visit request for ${booking.room.title || booking.room.propertyName || "the room"} has been ${booking.status}.`,
+      metadata: { type: `visit_request_${booking.status}`, roomId: String(booking.room._id), bookingId: String(booking._id), action: action || "" },
+      sendPush: true,
+    });
+  } catch (notificationError) {
+    console.error("Visit request notification failed", { bookingId: String(booking._id), error: notificationError.message });
+  }
   return sendSuccess(res, { message: "Request updated", data: { booking } });
 });
 

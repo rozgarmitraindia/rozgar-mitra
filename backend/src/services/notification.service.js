@@ -4,6 +4,22 @@ import { sendMail } from "./mail.service.js";
 import { sendPushNotification } from "./firebase.service.js";
 import { emitNotificationToUser, emitNotificationToRole, emitGlobalNotification } from "../utils/socket.js";
 
+function notificationUrlFor(metadata = {}, role = "") {
+  const type = metadata?.type;
+  if (type === "new_job" && metadata.jobId) return `/jobs/${metadata.jobId}`;
+  if (type === "room_status" && metadata.roomId) return `/room-owner/rooms`;
+  if (type === "job_status" && metadata.jobId) return `/employer/jobs`;
+  if (type === "visit_request" || type === "visit_request_admin_review") return "/room-owner/visit-requests";
+  if (type === "visit_request_rejected") return "/candidate/visit-requests";
+  if (String(type || "").startsWith("room_")) return role === "roomOwner" ? "/room-owner/bookings" : "/candidate/booked-room";
+  if (String(type || "").includes("interview")) return role === "employer" ? "/employer/applications" : "/interviews";
+  if (String(type || "").includes("application") || ["hired", "employment_terminated"].includes(type)) return role === "employer" ? "/employer/applications" : "/applied-jobs";
+  if (type === "account_status") return "/settings";
+  if (role === "employer") return "/employer/notifications";
+  if (role === "roomOwner") return "/room-owner/notifications";
+  return "/notifications";
+}
+
 export async function createNotification({ recipient, targetRole, title, body, channel = "inApp", metadata = {}, sendEmail = false, sendPush = false, realtime = true, emailHtml = "", emailSubject = "" }) {
   const notificationPayload = {
     title,
@@ -20,7 +36,10 @@ export async function createNotification({ recipient, targetRole, title, body, c
       await sendMail({ to: user.email, subject: emailSubject || title, html: emailHtml || `<p>${body}</p>` });
     }
     if (sendPush && user?.pushTokens?.length) {
-      await sendPushNotification(user.pushTokens, { notification: { title, body }, data: { type: metadata?.type || "notification", id: String(item._id), ...metadata } });
+      const pushResult = await sendPushNotification(user.pushTokens, { notification: { title, body }, data: { type: metadata?.type || "notification", id: String(item._id), url: notificationUrlFor(metadata, user.role), ...metadata } });
+      if (pushResult?.invalidTokens?.length) {
+        await User.updateOne({ _id: user._id }, { $pull: { pushTokens: { $in: pushResult.invalidTokens } } });
+      }
     }
     if (realtime) {
       emitNotificationToUser(recipient, { title, body, channel, metadata, id: item._id, createdAt: item.createdAt, status: item.status });
@@ -40,7 +59,10 @@ export async function createNotification({ recipient, targetRole, title, body, c
   if (sendPush) {
     const tokens = users.flatMap((user) => user.pushTokens || []);
     if (tokens.length) {
-      await sendPushNotification(tokens, { notification: { title, body }, data: { type: metadata?.type || "notification" } });
+      const pushResult = await sendPushNotification(tokens, { notification: { title, body }, data: { type: metadata?.type || "notification", url: notificationUrlFor(metadata, targetRole), ...metadata } });
+      if (pushResult?.invalidTokens?.length) {
+        await User.updateMany({ pushTokens: { $in: pushResult.invalidTokens } }, { $pull: { pushTokens: { $in: pushResult.invalidTokens } } });
+      }
     }
   }
 

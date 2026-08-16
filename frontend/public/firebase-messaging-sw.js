@@ -22,6 +22,8 @@ messaging.onBackgroundMessage(function(payload) {
     const title = notification.title || payload.data?.title || 'Rozgar Mitra';
     const options = {
       body: notification.body || payload.data?.body || '',
+      icon: '/rozgar-mitra-logo.png',
+      badge: '/favicon.svg',
       data: payload.data || {},
     };
     self.registration.showNotification(title, options);
@@ -32,7 +34,7 @@ messaging.onBackgroundMessage(function(payload) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const url = new URL(event.notification.data?.url || '/', self.location.origin).href;
   event.waitUntil(clients.matchAll({ type: 'window' }).then(windowClients => {
     for (let client of windowClients) {
       if (client.url === url && 'focus' in client) return client.focus();

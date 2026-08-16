@@ -906,6 +906,7 @@ adminRouter.patch("/:type/:id/status", validate(statusSchema), asyncHandler(asyn
         title: "New admin-approved visit request",
         body: `A candidate wants to visit ${populated.room?.title || populated.room?.propertyName || "your room"}. Please accept or reject the request.`,
         metadata: { type: "visit_request", roomId: populated.room?._id, bookingId: populated._id },
+        sendPush: true,
       });
       if (populated.owner?.email) await sendVisitRequestMail(populated.owner, populated.room, populated, populated.user);
     } else {
@@ -915,6 +916,7 @@ adminRouter.patch("/:type/:id/status", validate(statusSchema), asyncHandler(asyn
         body: reason || `Your visit request for ${populated.room?.title || populated.room?.propertyName || "the room"} was not approved.`,
         metadata: { type: "visit_request_rejected", roomId: populated.room?._id, bookingId: populated._id },
         sendEmail: true,
+        sendPush: true,
       });
     }
     await createActivity(req, { action: "visit.admin-review", module: type, entity: item, status: item.adminReviewStatus, reason, metadata: { requestedStatus } });
